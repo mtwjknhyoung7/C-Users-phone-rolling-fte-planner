@@ -1,0 +1,67 @@
+<!doctype html>
+if(pass.length<8){ createErr.textContent='Password must be at least 8 characters.'; return; }
+
+
+const users = loadUsers();
+if(users[email]){ createErr.textContent='Account already exists for this email.'; return; }
+
+
+// Superadmin gate
+if(role==='superadmin'){
+const ownerEmail = (document.getElementById('ownerEmail').value||'').trim().toLowerCase();
+const ownerCode = document.getElementById('ownerCode').value||'';
+if(ownerEmail !== OWNER_EMAIL){ createErr.textContent='Owner email does not match.'; return; }
+if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
+
+
+// Only 1 superadmin allowed unless same owner email
+const alreadySA = Object.values(users).some(u=>u.role==='superadmin');
+if(alreadySA && email !== OWNER_EMAIL){
+createErr.textContent='A Superadmin already exists. Only the Owner can replace it.'; return;
+}
+}
+
+
+const salted = email + ':' + pass;
+const hash = await sha256(salted);
+users[email] = { hash, role };
+saveUsers(users);
+
+
+// Auto-login after create
+setSession(email, role);
+location.href = 'index.html';
+};
+
+
+document.getElementById('btnLogin').onclick = async ()=>{
+loginErr.textContent='';
+const email = (document.getElementById('loginEmail').value||'').trim().toLowerCase();
+const pass = document.getElementById('loginPass').value||'';
+if(!email || !pass){ loginErr.textContent='Enter your email and password.'; return; }
+
+
+const users = loadUsers();
+const u = users[email];
+if(!u){ loginErr.textContent='Credentials not found.'; return; }
+
+
+const hash = await sha256(email+':'+pass);
+if(hash !== u.hash){ loginErr.textContent='Incorrect password.'; return; }
+
+
+setSession(email, u.role);
+location.href = 'index.html';
+};
+
+
+/* If a valid session already exists, send them in */
+(function(){
+try{
+const s = JSON.parse(localStorage.getItem('fte-session')||'null');
+if(s && s.exp && Date.now()<Number(s.exp)){ location.href='index.html'; }
+}catch{}
+})();
+</script>
+</body>
+</html>
