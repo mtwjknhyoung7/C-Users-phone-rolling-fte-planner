@@ -1,66 +1,184 @@
 <!doctype html>
-if(pass.length<8){ createErr.textContent='Password must be at least 8 characters.'; return; }
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Access · Rolling FTE Planner</title>
+<style>
+  :root{--bg:#f5f7fb;--panel:#fff;--border:#e5e7eb;--text:#0f172a;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:#f3f6fb;color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+  .card{width:min(880px,95vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 30px rgba(2,6,23,.08);padding:18px}
+  h1{margin:.2rem 0 .8rem 0;font-size:22px}
+  .muted{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .sec{border:1px solid var(--border);border-radius:12px;padding:12px}
+  .sec h2{margin:.2rem 0 .6rem 0;font-size:16px}
+  .row{display:flex;gap:10px;align-items:center}
+  .input{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .input label{font-size:12px;color:#6b7280}
+  .input input,.input select{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px}
+  button{border:1px solid var(--border);background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}
+  .err{color:var(--err);min-height:18px}
+  .ok{color:#16a34a}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#fff}
+  @media (max-width:920px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h1>Rolling FTE Planner · Access</h1>
+      <span id="cfgStatus" class="pill muted">Loading config…</span>
+    </div>
+    <p class="muted" style="margin-top:-6px">Use your account to sign in. Only the owner can create the single Superadmin.</p>
 
+    <div class="grid">
+      <!-- Sign in -->
+      <section class="sec">
+        <h2>Sign in</h2>
+        <div class="input"><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="you@company.com"/></div>
+        <div class="input"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••"/></div>
+        <div class="row" style="justify-content:space-between">
+          <button id="btnLogin">Sign in</button>
+          <a class="muted" href="index.html#safe" title="For testing only">Dev preview</a>
+        </div>
+        <div id="loginErr" class="err"></div>
+      </section>
 
-const users = loadUsers();
-if(users[email]){ createErr.textContent='Account already exists for this email.'; return; }
+      <!-- Create account -->
+      <section class="sec">
+        <h2>Create account</h2>
+        <div class="input"><label>Email</label><input id="createEmail" type="email" autocomplete="username" placeholder="you@company.com"/></div>
+        <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" autocomplete="new-password" placeholder="••••••••"/></div>
+        <div class="input">
+          <label>Role</label>
+          <select id="createRole">
+            <option value="user" selected>User</option>
+            <option value="admin">Admin</option>
+            <option value="superadmin">Superadmin (owner only)</option>
+          </select>
+        </div>
 
+        <div id="ownerGate" style="display:none">
+          <div class="input"><label>Owner email (from config.json)</label><input id="ownerEmail" type="email" placeholder="owner@example.com"/></div>
+          <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="Owner access code"/></div>
+        </div>
 
-// Superadmin gate
-if(role==='superadmin'){
-const ownerEmail = (document.getElementById('ownerEmail').value||'').trim().toLowerCase();
-const ownerCode = document.getElementById('ownerCode').value||'';
-if(ownerEmail !== OWNER_EMAIL){ createErr.textContent='Owner email does not match.'; return; }
-if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
+        <div class="row" style="justify-content:space-between">
+          <button id="btnCreate">Create account</button>
+          <span id="createInfo" class="muted">Superadmin requires owner email + code.</span>
+        </div>
+        <div id="createErr" class="err"></div>
+      </section>
+    </div>
+  </div>
+</div>
 
-
-// Only 1 superadmin allowed unless same owner email
-const alreadySA = Object.values(users).some(u=>u.role==='superadmin');
-if(alreadySA && email !== OWNER_EMAIL){
-createErr.textContent='A Superadmin already exists. Only the Owner can replace it.'; return;
+<script>
+/* ---- Small helpers ---- */
+const STATE_KEY='fte-session';
+function setSession(email, role){
+  const exp = Date.now()+7*24*60*60*1000; // 7 days
+  localStorage.setItem(STATE_KEY, JSON.stringify({email, role, exp}));
 }
+function loadUsers(){
+  try{ return JSON.parse(localStorage.getItem('fte-users')||'{}'); }catch{ return {}; }
+}
+function saveUsers(u){ localStorage.setItem('fte-users', JSON.stringify(u)); }
+async function sha256(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+/* ---- Load owner config ---- */
+let OWNER_EMAIL = '';
+let OWNER_ACCESS_CODE = '';
+(async ()=>{
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('missing config.json');
+    const cfg = await res.json();
+    OWNER_EMAIL = (cfg.ownerEmail||'').toLowerCase();
+    OWNER_ACCESS_CODE = String(cfg.ownerAccessCode||'');
+    document.getElementById('cfgStatus').textContent = `Config loaded for ${OWNER_EMAIL||'owner'}`
+  }catch(e){
+    document.getElementById('cfgStatus').textContent = 'Config not found (using local defaults)';
+  }
+})();
 
-const salted = email + ':' + pass;
-const hash = await sha256(salted);
-users[email] = { hash, role };
-saveUsers(users);
+/* ---- UI gating for Superadmin ---- */
+document.getElementById('createRole').addEventListener('change', e=>{
+  const isSA = e.target.value==='superadmin';
+  document.getElementById('ownerGate').style.display = isSA ? 'block' : 'none';
+});
 
+/* ---- Create account ---- */
+document.getElementById('btnCreate').onclick = async ()=>{
+  const email = (document.getElementById('createEmail').value||'').trim().toLowerCase();
+  const pass = document.getElementById('createPass').value||'';
+  const role = document.getElementById('createRole').value;
+  const createErr = document.getElementById('createErr');
+  createErr.textContent='';
 
-// Auto-login after create
-setSession(email, role);
-location.href = 'index.html';
+  if(!email || !pass){ createErr.textContent='Enter email and password.'; return; }
+  if(pass.length<8){ createErr.textContent='Password must be at least 8 characters.'; return; }
+
+  const users = loadUsers();
+  if(users[email]){ createErr.textContent='Account already exists for this email.'; return; }
+
+  // Superadmin gate
+  if(role==='superadmin'){
+    const ownerEmail = (document.getElementById('ownerEmail').value||'').trim().toLowerCase();
+    const ownerCode  = document.getElementById('ownerCode').value||'';
+    if(ownerEmail !== OWNER_EMAIL){ createErr.textContent='Owner email does not match.'; return; }
+    if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
+    // Only 1 superadmin allowed unless same owner email
+    const alreadySA = Object.values(users).some(u=>u.role==='superadmin');
+    if(alreadySA && email !== OWNER_EMAIL){
+      createErr.textContent='A Superadmin already exists. Only the Owner can replace it.'; return;
+    }
+  }
+
+  const salted = email + ':' + pass;
+  const hash = await sha256(salted);
+  users[email] = { hash, role };
+  saveUsers(users);
+
+  // Auto-login after create
+  setSession(email, role);
+  location.href = 'index.html';
 };
 
-
+/* ---- Login ---- */
 document.getElementById('btnLogin').onclick = async ()=>{
-loginErr.textContent='';
-const email = (document.getElementById('loginEmail').value||'').trim().toLowerCase();
-const pass = document.getElementById('loginPass').value||'';
-if(!email || !pass){ loginErr.textContent='Enter your email and password.'; return; }
+  const loginErr = document.getElementById('loginErr');
+  loginErr.textContent='';
+  const email = (document.getElementById('loginEmail').value||'').trim().toLowerCase();
+  const pass  = document.getElementById('loginPass').value||'';
+  if(!email || !pass){ loginErr.textContent='Enter your email and password.'; return; }
 
+  const users = loadUsers();
+  const u = users[email];
+  if(!u){ loginErr.textContent='Credentials not found.'; return; }
 
-const users = loadUsers();
-const u = users[email];
-if(!u){ loginErr.textContent='Credentials not found.'; return; }
+  const hash = await sha256(email+':'+pass);
+  if(hash !== u.hash){ loginErr.textContent='Incorrect password.'; return; }
 
-
-const hash = await sha256(email+':'+pass);
-if(hash !== u.hash){ loginErr.textContent='Incorrect password.'; return; }
-
-
-setSession(email, u.role);
-location.href = 'index.html';
+  setSession(email, u.role);
+  location.href = 'index.html';
 };
 
-
-/* If a valid session already exists, send them in */
+/* ---- If a valid session already exists, send them in ---- */
 (function(){
-try{
-const s = JSON.parse(localStorage.getItem('fte-session')||'null');
-if(s && s.exp && Date.now()<Number(s.exp)){ location.href='index.html'; }
-}catch{}
+  try{
+    const s = JSON.parse(localStorage.getItem('fte-session')||'null');
+    if(s && s.exp && Date.now() < Number(s.exp)){
+      location.href = 'index.html';
+    }
+  }catch{}
 })();
 </script>
 </body>
