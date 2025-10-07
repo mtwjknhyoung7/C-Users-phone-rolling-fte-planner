@@ -27,10 +27,11 @@
   .tab.active{background:linear-gradient(180deg,#18b6a0,#12927f);border-color:#108574;color:#fff}
   .month-row{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
   .month-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-title{font-weight:700}
-  .kpis{display:grid;grid-template-columns:repeat(14,minmax(100px,1fr));gap:12px;margin-top:8px}
-  .k{display:flex;flex-direction:column;gap:4px;min-width:100px}.k label{font-size:11px;color:#6b7280}
+  .kpis{display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:12px;margin-top:8px}
+  .k{display:flex;flex-direction:column;gap:4px;min-width:110px}.k label{font-size:11px;color:#6b7280}
   .k input{height:38px;border:1px solid var(--border);border-radius:10px;padding:6px 8px;width:100%}
-  .k .val{font-weight:700;min-height:38px;display:flex;align-items:center;padding:6px 8px;border:1px dashed #e5e7eb;border-radius:10px}
+  .k input[maxlength]{font-variant-numeric:tabular-nums}
+  .k .val{font-weight:700;min-height:38px;display:flex;align-items:center;padding:6px 8px;border:1px dashed #e5e7eb;border-radius:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .month-body{margin-top:10px;display:none}.month-row.open .month-body{display:block}
   .diag-item{border-left:4px solid var(--err);padding:8px;background:#fff;border:1px solid var(--border);border-left-color:var(--err);border-radius:8px;margin-bottom:8px}
   table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
@@ -84,6 +85,9 @@
           <div class="input" style="flex:1"><label>Service Level %</label><input id="g_sl" type="text" inputmode="decimal" placeholder="95"></div>
           <div class="input" style="flex:1"><label>Patient Attrition % (default)</label><input id="g_attr" type="text" inputmode="decimal" placeholder="3.5"></div>
         </div>
+        <div class="row">
+          <div class="input" style="flex:1"><label>FTE Attrition % (default)</label><input id="g_fteattr" type="text" inputmode="decimal" placeholder="3.5"></div>
+        </div>
         <div class="hint">FTE Need = (SL×NetPatients) ÷ (Workdays×Hours/day×Comp/hr×(1−Shrinkage)).</div>
       </div>
     </div>
@@ -95,7 +99,7 @@
         <div class="input" style="flex:1"><label>31–60 days %</label><input id="r_1" type="text" inputmode="decimal" placeholder="50"></div>
         <div class="input" style="flex:1"><label>90+ days %</label><input id="r_2" type="text" inputmode="decimal" placeholder="100"></div>
       </div>
-      <div class="hint">Ramp affects “Effective Supply” (not Required FTE). New-hire impact shows in staffing tabs.</div>
+      <div class="hint">Ramp applies in Outbound – Staff as “Effective Supply.”</div>
     </div>
 
     <div class="sec">
@@ -109,8 +113,8 @@
     </div>
 
     <div class="sec" id="ioSec">
-      <h3>Data I/O</h3>
-      <div class="row"><input id="csvFile" type="file" accept=".csv"/><button class="btn small" id="btnImportCsv">Import CSV</button></div>
+      <h3>Data I/O (Superadmin)</h3>
+      <div class="row"><input id="csvFile" type="file" accept=".csv"/><button class="btn small" id="btnImportCsv">Import Outbound CSV</button></div>
       <div class="row"><button class="btn small" id="btnExportJson">Export JSON</button></div>
       <div class="hint">CSV headers: month(YYYY-MM), som_patients, enrollments, attrition_pct, practice_loss, som_fte, new_hires</div>
     </div>
@@ -119,7 +123,6 @@
   <!-- Main -->
   <main class="content">
     <div class="tabs" id="tabs">
-      <!-- Order: Outbound, Outbound - Staff, Inbound, Inbound - Staff, Executive Summary, Diagnostics -->
       <button class="tab active" data-tab="overview">Outbound</button>
       <button class="tab" data-tab="staff">Outbound – Staff</button>
       <button class="tab" data-tab="inbound">Inbound</button>
@@ -152,9 +155,18 @@
         </div>
       </div>
       <table id="staffTbl">
-        <thead><tr><th>Month</th><th>FTE Need</th><th>Staffed (SOM FTE)</th><th>Gap</th><th>8h</th><th>10h</th><th>6h PT</th><th>4h PT</th></tr></thead>
-      <tbody></tbody></table>
-      <div class="hint" style="margin-top:8px">Mix applies to FTE gap. New hires ramp by Tenure settings; effective supply adjusts next months.</div>
+        <thead>
+          <tr>
+            <th>Month</th><th>FTE Need</th>
+            <th>Staffed (SOM FTE)</th><th>Effective Supply (ramp)</th>
+            <th>Gap vs Effective</th><th>8h</th><th>10h</th><th>6h PT</th><th>4h PT</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hint" style="margin-top:8px">
+        Effective Supply = SOM FTE − (prev1 new hires × (1−r1)) − (prev2 new hires × (1−r1)) + (this-month new hires × r0).
+      </div>
     </section>
 
     <!-- Inbound -->
@@ -226,7 +238,7 @@
         <thead><tr><th>Month</th><th>Inbound FTE Need</th><th>Inbound Staffed (editable)</th><th>Gap</th><th>8h</th><th>10h</th><th>6h PT</th><th>4h PT</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="hint" style="margin-top:8px">Inbound need comes from the Inbound tab’s monthly calculation. Enter staffed inbound FTE per month here.</div>
+      <div class="hint" style="margin-top:8px">Inbound need comes from the Inbound tab’s monthly computation. Enter staffed inbound FTE per month here.</div>
     </section>
 
     <!-- Executive Summary -->
@@ -281,7 +293,7 @@ function defaultState(){
   const now=new Date();const start=new Date(now.getFullYear(),now.getMonth(),1);
   const months=buildMonths(start,12).map(m=>({ym:m.ym,name:m.name,somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}));
   return{
-    globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
+    globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defAttr:3.5,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
     holiday:{},
     months,
     inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}
@@ -290,6 +302,7 @@ function defaultState(){
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
+  if(g.defFteAttr==null) g.defFteAttr=g.defAttr; // back-compat
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
@@ -318,12 +331,27 @@ function monthCalc(m){
   const netPatients=Math.max(0,(m.somPatients||0)+(m.enrollments||0)-attrPatients-(m.practiceLoss||0));
   const slPatients=Math.round(netPatients*(g.sl/100));
   const effHr=g.hoursPerDay*(1-(g.shrink/100));
-  const perFTE=g.compPerHr*effHr;
-  const denom=workdays>0?(workdays*perFTE):0;
+  const perFTE=Math.max(0.0001,g.compPerHr*effHr);
+  const denom=(workdays>0?workdays*perFTE:0);
   const fteNeed=denom>0?(slPatients/denom):0;
-  const fteAttrPct=(m.fteAttritionPct==null?g.defAttr:m.fteAttritionPct)/100;
+  const fteAttrPct=(m.fteAttritionPct==null?g.defFteAttr:m.fteAttritionPct)/100;
   const eomFTE=Math.max(0,(m.somFTE||0)-((m.somFTE||0)*fteAttrPct)+(m.newHires||0));
   return{workdays,hours,attrPatients,netPatients,slPatients,fteNeed,eomFTE};
+}
+
+/* Effective Supply (Outbound – Staff) with ramp */
+function effectiveSupplyForMonth(idx){
+  const g=state.globals;
+  const m=state.months[idx]; if(!m) return 0;
+  const som=m.somFTE||0;
+  const curr=(m.newHires||0)*(g.ramp0/100);
+  const p1=(state.months[idx-1]?.newHires||0);
+  const p2=(state.months[idx-2]?.newHires||0);
+  const r1lack = (1 - (g.ramp1/100));
+  // SOM FTE already includes past hires as full heads; reduce by the portion they cannot yet produce
+  const degrade = p1*r1lack + p2*r1lack;
+  const eff = Math.max(0, som - degrade + curr);
+  return eff;
 }
 
 /* Erlang C (Inbound) */
@@ -333,8 +361,23 @@ function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; const ec=erlangC(N,a); re
 function findAgentsForSL(a,AHT,T,targetSL){ let N=Math.max(1,Math.ceil(a)+1); for(let i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
 
 /* Renderers */
-function renderAll(){saveState();renderSidebar();renderOverview();renderExec();renderStaffing();renderInStaff();renderDiag();const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`;}
-function renderSidebar(){const g=state.globals;setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);setNum($('#g_sl'),g.sl,0);setNum($('#g_attr'),g.defAttr,2);setNum($('#r_0'),g.ramp0,1);setNum($('#r_1'),g.ramp1,1);setNum($('#r_2'),g.ramp2,0);$('#ioSec').style.display=(session.role==='superadmin')?'block':'none';}
+function renderAll(){
+  saveState();
+  renderSidebar();
+  renderOverview();
+  renderExec();
+  renderStaffing();
+  renderInStaff();
+  renderDiag();
+  const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`;
+}
+function renderSidebar(){
+  const g=state.globals;
+  setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);
+  setNum($('#g_sl'),g.sl,0);setNum($('#g_attr'),g.defAttr,2);setNum($('#g_fteattr'),g.defFteAttr,2);
+  setNum($('#r_0'),g.ramp0,1);setNum($('#r_1'),g.ramp1,1);setNum($('#r_2'),g.ramp2,0);
+  $('#ioSec').style.display=(session.role==='superadmin')?'block':'none';
+}
 
 function renderOverview(){
   state.months=dedupAndSortMonths(state.months);
@@ -345,11 +388,14 @@ function renderOverview(){
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
+
+  // Auto-carry toggles
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
     if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
   }
+
   span.forEach(ym=>{
     const m=state.months.find(x=>normalizeYM(x.ym)===ym);
     if(!m) return;
@@ -365,7 +411,7 @@ function renderOverview(){
         <div class="k"><label>SL Patients (${state.globals.sl}% of Net)</label><div class="val">${mc.slPatients.toLocaleString()}</div></div>
         <div class="k"><label>FTE Need</label><div class="val">${mc.fteNeed.toFixed(1)}</div></div>
         <div class="k"><label>EOM Patients (Net)</label><div class="val">${mc.netPatients.toLocaleString()}</div></div>
-        <div class="k"><label>SOM FTE</label><input data-f="somFTE" placeholder="0.0" value="${(m.somFTE||0)}"></div>
+        <div class="k"><label>SOM FTE</label><input data-f="somFTE" placeholder="0.0" value="${(m.somFTE||'')}"></div>
         <div class="k"><label>EOM FTE</label><div class="val">${mc.eomFTE.toFixed(1)}</div></div>
         <div class="k"><label>8h Schedules</label><div class="val">${schedBreak(mc.fteNeed,8)}</div></div>
         <div class="k"><label>10h Schedules</label><div class="val">${schedBreak(mc.fteNeed,10)}</div></div>
@@ -404,6 +450,7 @@ function schedBreak(fte,hours){const heads=(fte*173.33)/(hours*21.666);return(!i
 let netChart,fteChart;
 function renderExec(){
   const group=document.querySelector('.execwin');
+  if(group){ group.querySelectorAll('button[data-execwin]').forEach(b=>{ b.onclick=()=>{ group.querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderExec(); }; }); }
   const active=group?.querySelector('button.active[data-execwin]')||group?.querySelector('button[data-execwin="1"]');
   const win=Number(active?.getAttribute('data-execwin')||1);
   const startIdx=Math.max(0,state.months.findIndex(m=>normalizeYM(m.ym)>=($('#startMonth')?.value||ymKey(new Date()))));
@@ -427,7 +474,7 @@ function renderExec(){
       <div class="row"><span class="muted">SL Patients</span><span style="margin-left:auto;font-weight:700">${mc.slPatients.toLocaleString()}</span></div>
       <div class="row"><span class="muted">FTE Need</span><span style="margin-left:auto;font-weight:700">${mc.fteNeed.toFixed(1)}</span></div>
       <div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto">${(m.somFTE||0).toFixed(1)}</span></div>
-      <div class="row"><span class="muted ${gap>0?'danger':'ok'}">Hiring Gap</span><span style="margin-left:auto">${gap.toFixed(1)}</span></div></div>`;
+      <div class="row"><span class="muted ${gap>0?'danger':'ok'}">Hiring Gap (vs SOM)</span><span style="margin-left:auto">${gap.toFixed(1)}</span></div></div>`;
     cards.appendChild(div);
   });
   const nc=document.getElementById('chartNet').getContext('2d');
@@ -437,7 +484,7 @@ function renderExec(){
   fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});
 }
 
-/* Outbound – Staff (exact start month) */
+/* Outbound – Staff */
 function renderStaffing(){
   const tbody=$('#staffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
   const mix=[readNum($('#mix8')),readNum($('#mix10')),readNum($('#mix6')),readNum($('#mix4'))];
@@ -445,14 +492,24 @@ function renderStaffing(){
   let start=$('#staffStart')?.value||$('#startMonth')?.value||ymKey(new Date()); start=normalizeYM(start); ensureMonth(start);
   const idx=state.months.findIndex(m=>normalizeYM(m.ym)===start);
   const view=state.months.slice(idx,idx+12);
-  view.forEach(m=>{
-    const mc=monthCalc(m);const gap=Math.max(0,mc.fteNeed-(m.somFTE||0));
-    const r8=(gap*frac[0]).toFixed(1),r10=(gap*frac[1]).toFixed(1),r6=(gap*frac[2]).toFixed(1),r4=(gap*frac[3]).toFixed(1);
-    const tr=document.createElement('tr');tr.innerHTML=`<td>${m.name}</td><td>${mc.fteNeed.toFixed(1)}</td><td>${(m.somFTE||0).toFixed(1)}</td><td>${gap.toFixed(1)}</td><td>${r8}</td><td>${r10}</td><td>${r6}</td><td>${r4}</td>`;tbody.appendChild(tr);
+  view.forEach((m,i)=>{
+    const mc=monthCalc(m);
+    const globalIdx = idx+i;
+    const effSupply = effectiveSupplyForMonth(globalIdx);
+    const gapEff=Math.max(0,mc.fteNeed-effSupply);
+    const r8=(gapEff*frac[0]).toFixed(1),r10=(gapEff*frac[1]).toFixed(1),r6=(gapEff*frac[2]).toFixed(1),r4=(gapEff*frac[3]).toFixed(1);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m.name}</td>
+      <td>${mc.fteNeed.toFixed(1)}</td>
+      <td>${(m.somFTE||0).toFixed(1)}</td>
+      <td>${effSupply.toFixed(1)}</td>
+      <td>${gapEff.toFixed(1)}</td>
+      <td>${r8}</td><td>${r10}</td><td>${r6}</td><td>${r4}</td>`;
+    tbody.appendChild(tr);
   });
 }
 
-/* Inbound interval grid */
+/* Inbound interval grid + CSV import/export */
 function ensureInboundGrid(){
   const grid=$('#intervalGrid'); const body=$('#intervalBody');
   grid.style.display='block'; body.innerHTML='';
@@ -615,6 +672,7 @@ function renderInStaff(){
     tbody.appendChild(tr);
   });
 
+  // bind edits
   tbody.querySelectorAll('input[data-instaff]').forEach(inp=>{
     inp.oninput=()=>{
       const ym=inp.getAttribute('data-instaff');
@@ -625,9 +683,20 @@ function renderInStaff(){
   });
 }
 
-/* Diagnostics */
-function renderDiag(){const div=$('#diagList'); if(!div) return; div.innerHTML='';const g=state.globals;if(g.compPerHr<=0)div.append(diagItem('Comp/hr is 0 — FTE Need would be infinite. Set a positive Comp/hr.'));state.months.forEach(m=>{if(m.somPatients<0)div.append(diagItem(`${m.name}: SOM patients < 0`));if((m.attritionPct??g.defAttr)>50)div.append(diagItem(`${m.name}: Patient attrition % unusually high`));});}
-function diagItem(msg){const d=document.createElement('div');d.className='diag-item';d.textContent=msg;return d;}
+/* Diagnostics (+fix suggestions) */
+function renderDiag(){
+  const div=$('#diagList'); if(!div) return; div.innerHTML='';
+  const g=state.globals;
+  if(g.compPerHr<=0)div.append(diagItem('Comp/hr is 0 — FTE Need would be infinite. Set a positive Comp/hr.','Set Comp/hr > 0 in Global Settings.'));
+  if(g.hoursPerDay<=0)div.append(diagItem('Hours/day is 0 — denominator invalid.','Set Hours/day > 0 in Global Settings.'));
+  if(g.shrink>=100)div.append(diagItem('Shrinkage ≥ 100% — effective hours ≤ 0.','Use a shrinkage < 100%. Typical: 25–40%.'));
+  state.months.forEach(m=>{
+    if(m.somPatients<0)div.append(diagItem(`${m.name}: SOM patients < 0`,'Enter a non-negative SOM patients value.'));
+    if((m.attritionPct??g.defAttr)>50)div.append(diagItem(`${m.name}: Patient attrition % unusually high`,'Verify monthly patient churn; typical 1–10%.'));
+    if((m.fteAttritionPct??g.defFteAttr)>25)div.append(diagItem(`${m.name}: FTE attrition % high`,'Consider hiring buffer or retention actions.'));
+  });
+}
+function diagItem(msg,fix){const d=document.createElement('div');d.className='diag-item';d.innerHTML=`<div><strong>${msg}</strong><div class="muted">${fix||''}</div></div>`;return d;}
 
 /* Tabs */
 document.getElementById('tabs').addEventListener('click',e=>{
@@ -639,6 +708,7 @@ document.getElementById('tabs').addEventListener('click',e=>{
 
 /* Global actions */
 $('#btnToggleGlobal').onclick=()=>{const el=$('#globalBody');const b=$('#btnToggleGlobal');const isOpen=el.style.display!=='none';el.style.display=isOpen?'none':'block';b.textContent=isOpen?'Expand':'Collapse';};
+
 $('#btnExportSummary').onclick=()=>{
   const mode=$('#exportMode').value;const lines=[];
   const start=$('#startMonth')?.value||ymKey(new Date());
@@ -653,9 +723,22 @@ $('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOv
 $('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
 $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
 
-['g_comp','g_hours','g_shrink','g_sl','g_attr','r_0','r_1','r_2'].forEach(id=>{
+/* Global inputs -> state */
+['g_comp','g_hours','g_shrink','g_sl','g_attr','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
   const el=$('#'+id); if(!el) return;
-  el.oninput=()=>{const g=state.globals;g.compPerHr=readNum($('#g_comp'));g.hoursPerDay=readNum($('#g_hours'));g.shrink=readNum($('#g_shrink'));g.sl=readNum($('#g_sl'));g.defAttr=readNum($('#g_attr'));g.ramp0=readNum($('#r_0'));g.ramp1=readNum($('#r_1'));g.ramp2=readNum($('#r_2'));renderAll();};
+  el.oninput=()=>{
+    const g=state.globals;
+    g.compPerHr=readNum($('#g_comp'));
+    g.hoursPerDay=readNum($('#g_hours'));
+    g.shrink=readNum($('#g_shrink'));
+    g.sl=readNum($('#g_sl'));
+    g.defAttr=readNum($('#g_attr'));
+    g.defFteAttr=readNum($('#g_fteattr'));
+    g.ramp0=readNum($('#r_0'));
+    g.ramp1=readNum($('#r_1'));
+    g.ramp2=readNum($('#r_2'));
+    renderAll();
+  };
 });
 
 /* Holidays UI */
@@ -669,12 +752,46 @@ $('#startMonth').addEventListener('change',()=>{
   const v=normalizeYM($('#startMonth').value);
   if($('#staffStart')) $('#staffStart').value=v;
   if($('#inStaffStart')) $('#inStaffStart').value=v;
+  $('#in_month').value=v;
   renderAll();
 });
 $('#horizon').addEventListener('change',renderAll);
 
-/* Inbound buttons */
-$('#btnBuildIntervals').onclick=ensureInboundGrid;
+/* Outbound CSV import + JSON export */
+$('#btnImportCsv').onclick=()=>{
+  const f=$('#csvFile').files[0]; if(!f){alert('Choose a CSV file first.');return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const lines=(r.result||'').split(/\r?\n/).filter(x=>x.trim());
+      const headers=lines.shift().split(',').map(h=>h.trim().toLowerCase());
+      const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
+      const required=['month(yyyy-mm)','som_patients','enrollments','attrition_pct','practice_loss','som_fte','new_hires'];
+      if(!required.every(h=>idx[h]!=null)){alert('Missing required headers. Check README.');return;}
+      lines.forEach(line=>{
+        const cols=line.split(',');
+        const ym=(cols[idx['month(yyyy-mm)']]||'').trim();
+        if(!/^\d{4}-\d{2}$/.test(ym)) return;
+        ensureMonth(ym);
+        const m=state.months.find(x=>x.ym===ym);
+        m.somPatients=+cols[idx['som_patients']]||0;
+        m.enrollments=+cols[idx['enrollments']]||0;
+        m.attritionPct=(cols[idx['attrition_pct']]===''?null:(+cols[idx['attrition_pct']]||0));
+        m.practiceLoss=+cols[idx['practice_loss']]||0;
+        m.somFTE=+cols[idx['som_fte']]||0;
+        m.newHires=+cols[idx['new_hires']]||0;
+      });
+      saveState(); renderAll(); alert('Outbound CSV imported.');
+    }catch(e){alert('Import failed: '+e.message);}
+  };
+  r.readAsText(f);
+};
+$('#btnExportJson').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fte_state.json';a.click();
+};
+
+/* Inbound buttons already wired above */
 
 /* Init */
 function init(){
