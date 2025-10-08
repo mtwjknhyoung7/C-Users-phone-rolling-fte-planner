@@ -47,28 +47,43 @@
 </head>
 <body>
 
-<!-- Auth guard -->
-<script>
-(function () {
-  const KEY='fte-session';
-  const u=new URL(location.href);
-  if(u.searchParams.get('reset')==='1'){ try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{} }
-  const safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
-  if(safe){try{window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null');}catch{} return;}
-  let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null');}catch{location.href='access.html';return}
-  if(!s||!s.email||!s.role){location.href='access.html';return}
-  if(s.exp && Date.now()>=Number(s.exp)){localStorage.removeItem(KEY);location.href='access.html';return}
-  window.__FTE_SESSION__=s;
-})();
+<!-- ---------- Firebase Auth guard (module) ---------- -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+    authDomain: "fte-planner.firebaseapp.com",
+    projectId: "fte-planner",
+    storageBucket: "fte-planner.firebasestorage.app",
+    messagingSenderId: "410936425819",
+    appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+    measurementId: "G-0BZP3LETBE"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // expose sign-out for the header button
+  window.appSignOut = () => signOut(auth);
+
+  // signal when auth is ready; start app safely (no race with inline script)
+  onAuthStateChanged(auth, (user) => {
+    if (!user) { location.href = "access.html"; return; }
+    window.__FTE_USER_EMAIL__ = user.email || "(user)";
+    window.__authReady = true;
+    if (window.__bootApp) try { window.__bootApp(); } catch (e) { console.error(e); }
+  });
 </script>
 
 <header class="appbar">
   <div class="row">
     <div class="brand">Rolling FTE Planner</div>
     <span class="chip" id="horizonChip"></span>
-    <span class="chip">build 2025-10-07a</span>
+    <span class="chip">build 2025-10-07b</span>
   </div>
-  <div class="row"><span class="muted" id="userInfo"></span><button class="btn small" id="btnSignOut">Sign out</button></div>
+  <div class="row"><span class="muted" id="userInfo">(auth)…</span><button class="btn small" id="btnSignOut">Sign out</button></div>
 </header>
 
 <div class="wrap">
@@ -278,12 +293,11 @@
 
 <script>
 /* ===== Utilities & session ===== */
-const session=window.__FTE_SESSION__||{email:'(safe)',role:'user'};
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const readNum=el=>{const s=(el?.value||'').replace(/[^0-9.\-]/g,'');const v=parseFloat(s);return isNaN(v)?0:v;}
 const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
-document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
-document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
+document.getElementById('userInfo').textContent='(auth)…';
+document.getElementById('btnSignOut').onclick=()=>{ if(window.appSignOut) window.appSignOut(); };
 
 /* Month helpers (timezone-safe) */
 function normalizeYM(s){
@@ -296,7 +310,7 @@ function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 function ymToDate(ym){
   const n=normalizeYM(ym); if(!n) return new Date();
   const [Y,M]=n.split('-').map(Number);
-  return new Date(Y, (M||1)-1, 1);  // <- FIX: numeric ctor avoids UTC parsing & month drift
+  return new Date(Y, (M||1)-1, 1);
 }
 function dedupAndSortMonths(arr){
   const map=new Map();
@@ -396,7 +410,7 @@ function renderSidebar(){
   setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);
   setNum($('#g_sl'),g.sl,0);setNum($('#g_attr'),g.defAttr,2);setNum($('#g_fteattr'),g.defFteAttr,2);
   setNum($('#r_0'),g.ramp0,1);setNum($('#r_1'),g.ramp1,1);setNum($('#r_2'),g.ramp2,0);
-  $('#ioSec').style.display=(session.role==='superadmin')?'block':'none';
+  $('#ioSec').style.display='block'; // keep visible; your access page controls roles now via Firebase
 }
 
 function renderOverview(){
@@ -405,20 +419,17 @@ function renderOverview(){
   const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
   const horizon = Number($('#horizon')?.value||12);
 
-  // Build exact view span (timezone-safe)
   const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
 
-  // Auto-carry toggles (on chronological order)
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
     if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
   }
 
-  // Render only the span
   span.forEach(ym=>{
     const m=state.months.find(x=>normalizeYM(x.ym)===ym);
     if(!m) return;
@@ -503,8 +514,8 @@ function renderExec(){
   const nc=document.getElementById('chartNet').getContext('2d');
   const fc=document.getElementById('chartFte').getContext('2d');
   if(netChart)netChart.destroy(); if(fteChart)fteChart.destroy();
-  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}});
-  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});
+  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); 
+  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}}); 
 }
 
 /* Outbound – Staff */
@@ -630,7 +641,6 @@ function erlangRunAndStore(){
   const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
   const monthlyFTE = dailyFTE * wd;
 
-  // write table
   const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
   body.querySelectorAll('tr').forEach((tr,i)=>{
     const r=rows[i];
@@ -641,7 +651,6 @@ function erlangRunAndStore(){
     tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
   });
 
-  // summary
   $('#intervalGrid').style.display='block';
   $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
   $('#in_agent_hours').textContent = agentHours.toFixed(1);
@@ -650,7 +659,6 @@ function erlangRunAndStore(){
   $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
   $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
 
-  // store by month for Inbound – Staff tab
   if(!state.inbound.monthFTE) state.inbound.monthFTE={};
   state.inbound.monthFTE[ym] = monthlyFTE;
   saveState();
@@ -813,8 +821,11 @@ $('#btnExportJson').onclick=()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fte_state.json';a.click();
 };
 
-/* Init */
+/* Init (run only after Firebase auth is ready) */
 function init(){
+  // set signed-in user label
+  document.getElementById('userInfo').textContent = (window.__FTE_USER_EMAIL__ || '(user)') + ' · signed in';
+
   state=loadState();
   const nowYM=ymKey(new Date());
   $('#startMonth').value=normalizeYM(state.months[0]?.ym)||nowYM;
@@ -823,7 +834,10 @@ function init(){
   $('#inStaffStart').value=$('#startMonth').value;
   renderAll();
 }
-init();
+
+// boot safely whether auth or script loads first
+window.__bootApp = function(){ if(window.__bootRan) return; window.__bootRan=true; init(); };
+if (window.__authReady) window.__bootApp();
 </script>
 </body>
 </html>
