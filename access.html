@@ -1,70 +1,111 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Rolling FTE Planner · Sign in</title>
-
-  <!-- Firebase SDKs (compat for simplicity) -->
-  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <!-- Your Firebase init + session bridge -->
-  <script defer src="auth.js"></script>
-
-  <style>
-    :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
-    html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{max-width:960px;margin:40px auto;padding:0 12px}
-    .head{display:flex;justify-content:space-between;align-items:center}
-    .badge{padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
-    .grid{display:grid;grid-template-columns:1fr;gap:14px}
-    .input{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
-    .input label{font-size:12px;color:var(--muted)}
-    input,button{height:42px;border:1px solid var(--border);border-radius:10px;padding:10px}
-    button{cursor:pointer;background:#18b6a0;color:#fff;border:none;border-radius:10px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .err{color:var(--err);margin-top:8px}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Rolling FTE Planner · Access</title>
+<style>
+  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
+  html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:980px;margin:32px auto;padding:0 12px}
+  h1{margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px}
+  .input{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+  .input label{font-size:12px;color:var(--muted)}
+  input,select,button{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px}
+  button{cursor:pointer;background:#fff}
+  .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .muted{color:var(--muted)} .err{color:var(--err)}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="head">
-      <h1 style="margin:0">Rolling FTE Planner · Sign in</h1>
-      <span class="badge">access build 2025-10-07a</span>
-    </div>
-    <p style="color:#64748b">Sign in with your email and password. (Users are managed in Firebase.)</p>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between">
+    <h1>Rolling FTE Planner · Access</h1>
+    <span class="muted">build 2025-10-07a</span>
+  </div>
+  <p class="muted">Sign in, or create an account. Only the owner can create the single Superadmin account.</p>
 
-    <div class="grid">
-      <div class="card">
-        <div class="input"><label>Email</label><input id="email" type="email" placeholder="you@company.com" autocomplete="username"/></div>
-        <div class="input"><label>Password</label><input id="pass" type="password" placeholder="********" autocomplete="current-password"/></div>
-        <div class="row">
-          <button id="btnLogin">Sign in</button>
-          <a href="index.html#safe" style="color:#64748b">Dev preview (bypass)</a>
-        </div>
-        <div id="err" class="err"></div>
+  <div class="grid">
+    <!-- Sign in -->
+    <div class="card">
+      <h3>Sign in</h3>
+      <div class="input"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
+      <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password"></div>
+      <div class="row"><button id="btnLogin" class="btn primary">Sign in</button></div>
+      <div id="loginErr" class="err" style="margin-top:8px"></div>
+    </div>
+
+    <!-- Create account -->
+    <div class="card">
+      <h3>Create account</h3>
+      <div class="input"><label>Email</label><input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
+      <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password"></div>
+      <div class="input">
+        <label>Role</label>
+        <select id="createRole">
+          <option value="user">Regular user</option>
+          <option value="superadmin">Superadmin (owner only)</option>
+        </select>
       </div>
+      <div id="ownerGate">
+        <div class="input"><label>Owner email</label><input id="ownerEmail" type="email" readonly></div>
+        <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="code"></div>
+      </div>
+      <div class="row"><button id="btnCreate" class="btn primary">Create account</button></div>
+      <div id="createErr" class="err" style="margin-top:8px"></div>
     </div>
   </div>
+</div>
 
-  <script>
-    window.addEventListener('DOMContentLoaded', ()=>{
-      const { signInAndSetSession } = window.__AUTH__ || {};
-      const email = document.getElementById('email');
-      const pass  = document.getElementById('pass');
-      const errEl = document.getElementById('err');
+<!-- Firebase SDKs (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- Your auth glue -->
+<script src="/auth.js"></script>
+<script>
+  // If already signed in, go straight to the app.
+  window.fteAuth.goToAppIfSignedIn();
 
-      document.getElementById('btnLogin').onclick = async ()=>{
-        errEl.textContent='';
-        try{
-          if(!email.value || !pass.value){ errEl.textContent='Enter email and password.'; return; }
-          await signInAndSetSession(email.value, pass.value);
-        }catch(e){
-          errEl.textContent = e?.message || 'Login failed';
-        }
-      };
-    });
-  </script>
+  // Show/hide owner gate by role & show owner email constant from auth.js
+  const roleSel = document.getElementById('createRole');
+  const ownerGate = document.getElementById('ownerGate');
+  function toggleGate(){ ownerGate.style.display = roleSel.value === 'superadmin' ? 'block' : 'none'; }
+  toggleGate(); roleSel.onchange = toggleGate;
+
+  // Fill owner email (comes from auth.js)
+  // We can’t import constants directly; show text to user as a reminder.
+  document.getElementById('ownerEmail').value = "phoneemail07@gmail.com";
+
+  // Wire buttons
+  document.getElementById('btnLogin').onclick = async () => {
+    const err = document.getElementById('loginErr'); err.textContent = '';
+    try {
+      await window.fteAuth.signIn(
+        document.getElementById('loginEmail').value,
+        document.getElementById('loginPass').value
+      );
+      location.href = 'index.html';
+    } catch (e) { err.textContent = e.message; }
+  };
+
+  document.getElementById('btnCreate').onclick = async () => {
+    const err = document.getElementById('createErr'); err.textContent = '';
+    try {
+      await window.fteAuth.createAccount(
+        document.getElementById('createEmail').value,
+        document.getElementById('createPass').value,
+        document.getElementById('createRole').value,
+        document.getElementById('ownerEmail').value,
+        document.getElementById('ownerCode').value
+      );
+      // auto sign-in will happen; if not, prompt user to sign in
+      alert('Account created. Please sign in.');
+    } catch (e) { err.textContent = e.message; }
+  };
+</script>
 </body>
 </html>
