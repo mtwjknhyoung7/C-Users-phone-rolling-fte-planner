@@ -63,7 +63,11 @@
 </script>
 
 <header class="appbar">
-  <div class="row"><div class="brand">Rolling FTE Planner</div><span class="chip" id="horizonChip"></span></div>
+  <div class="row">
+    <div class="brand">Rolling FTE Planner</div>
+    <span class="chip" id="horizonChip"></span>
+    <span class="chip">build 2025-10-07a</span>
+  </div>
   <div class="row"><span class="muted" id="userInfo"></span><button class="btn small" id="btnSignOut">Sign out</button></div>
 </header>
 
@@ -99,7 +103,7 @@
         <div class="input" style="flex:1"><label>31–60 days %</label><input id="r_1" type="text" inputmode="decimal" placeholder="50"></div>
         <div class="input" style="flex:1"><label>90+ days %</label><input id="r_2" type="text" inputmode="decimal" placeholder="100"></div>
       </div>
-      <div class="hint">Ramp applies in Outbound – Staff as “Effective Supply.”</div>
+      <div class="hint">Ramp applies on Outbound – Staff as “Effective Supply.”</div>
     </div>
 
     <div class="sec">
@@ -281,11 +285,29 @@ const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
 document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
 document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
 
-/* Month helpers */
-function normalizeYM(s){if(!s)return s;const m1=/^(\d{4})-(\d{1,2})$/.exec(s);if(m1)return`${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;const m2=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);if(m2)return`${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`;return s;}
-function ymKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-function ymToDate(ym){return new Date((normalizeYM(ym)||'1970-01')+'-01');}
-function dedupAndSortMonths(arr){const map=new Map();(arr||[]).forEach(m=>{const ym=normalizeYM(m?.ym||'');if(!ym)return;const prev=map.get(ym)||{};map.set(ym,{...prev,...m,ym,name:ymToDate(ym).toLocaleString(undefined,{month:'long',year:'numeric'})});});return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));}
+/* Month helpers (timezone-safe) */
+function normalizeYM(s){
+  if(!s)return s;
+  const m1=/^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
+  const m2=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m2) return `${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`;
+  return s;
+}
+function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function ymToDate(ym){
+  const n=normalizeYM(ym); if(!n) return new Date();
+  const [Y,M]=n.split('-').map(Number);
+  return new Date(Y, (M||1)-1, 1);  // <- FIX: numeric ctor avoids UTC parsing & month drift
+}
+function dedupAndSortMonths(arr){
+  const map=new Map();
+  (arr||[]).forEach(m=>{
+    const ym=normalizeYM(m?.ym||''); if(!ym) return;
+    const d=ymToDate(ym);
+    const prev=map.get(ym)||{};
+    map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});
+  });
+  return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));
+}
 
 /* State */
 const STATE_KEY='fte-state-v2'; let state=null;
@@ -302,7 +324,7 @@ function defaultState(){
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
-  if(g.defFteAttr==null) g.defFteAttr=g.defAttr; // back-compat
+  if(g.defFteAttr==null) g.defFteAttr=g.defAttr;
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
@@ -317,7 +339,15 @@ function saveState(){try{localStorage.setItem(STATE_KEY,JSON.stringify(state));}
 
 /* Calendar */
 function buildMonths(startDate,count){const arr=[];for(let i=0;i<count;i++){const d=new Date(startDate.getFullYear(),startDate.getMonth()+i,1);const ym=ymKey(d);const name=d.toLocaleString(undefined,{month:'long',year:'numeric'});arr.push({ym,name});}return arr;}
-function ensureMonth(ym){ym=normalizeYM(ym);if(!ym)return;const exists=state.months.find(m=>m.ym===ym);if(!exists){const d=ymToDate(ym);state.months.push({ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false});state.months=dedupAndSortMonths(state.months);}}
+function ensureMonth(ym){
+  ym=normalizeYM(ym); if(!ym) return;
+  const exists=state.months.find(m=>m.ym===ym);
+  if(!exists){
+    const d=ymToDate(ym);
+    state.months.push({ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false});
+    state.months=dedupAndSortMonths(state.months);
+  }
+}
 function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1)){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
 
 /* Outbound calc */
@@ -348,7 +378,6 @@ function effectiveSupplyForMonth(idx){
   const p1=(state.months[idx-1]?.newHires||0);
   const p2=(state.months[idx-2]?.newHires||0);
   const r1lack = (1 - (g.ramp1/100));
-  // SOM FTE already includes past hires as full heads; reduce by the portion they cannot yet produce
   const degrade = p1*r1lack + p2*r1lack;
   const eff = Math.max(0, som - degrade + curr);
   return eff;
@@ -361,16 +390,7 @@ function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; const ec=erlangC(N,a); re
 function findAgentsForSL(a,AHT,T,targetSL){ let N=Math.max(1,Math.ceil(a)+1); for(let i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
 
 /* Renderers */
-function renderAll(){
-  saveState();
-  renderSidebar();
-  renderOverview();
-  renderExec();
-  renderStaffing();
-  renderInStaff();
-  renderDiag();
-  const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`;
-}
+function renderAll(){ saveState(); renderSidebar(); renderOverview(); renderExec(); renderStaffing(); renderInStaff(); renderDiag(); const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`; }
 function renderSidebar(){
   const g=state.globals;
   setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);
@@ -384,18 +404,21 @@ function renderOverview(){
   const cont=$('#months'); if(!cont) return; cont.innerHTML='';
   const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
   const horizon = Number($('#horizon')?.value||12);
+
+  // Build exact view span (timezone-safe)
   const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
 
-  // Auto-carry toggles
+  // Auto-carry toggles (on chronological order)
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
     if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
   }
 
+  // Render only the span
   span.forEach(ym=>{
     const m=state.months.find(x=>normalizeYM(x.ym)===ym);
     if(!m) return;
@@ -672,7 +695,6 @@ function renderInStaff(){
     tbody.appendChild(tr);
   });
 
-  // bind edits
   tbody.querySelectorAll('input[data-instaff]').forEach(inp=>{
     inp.oninput=()=>{
       const ym=inp.getAttribute('data-instaff');
@@ -683,11 +705,11 @@ function renderInStaff(){
   });
 }
 
-/* Diagnostics (+fix suggestions) */
+/* Diagnostics (+suggestions) */
 function renderDiag(){
   const div=$('#diagList'); if(!div) return; div.innerHTML='';
   const g=state.globals;
-  if(g.compPerHr<=0)div.append(diagItem('Comp/hr is 0 — FTE Need would be infinite. Set a positive Comp/hr.','Set Comp/hr > 0 in Global Settings.'));
+  if(g.compPerHr<=0)div.append(diagItem('Comp/hr is 0 — FTE Need would be infinite.','Set Comp/hr > 0 in Global Settings.'));
   if(g.hoursPerDay<=0)div.append(diagItem('Hours/day is 0 — denominator invalid.','Set Hours/day > 0 in Global Settings.'));
   if(g.shrink>=100)div.append(diagItem('Shrinkage ≥ 100% — effective hours ≤ 0.','Use a shrinkage < 100%. Typical: 25–40%.'));
   state.months.forEach(m=>{
@@ -790,8 +812,6 @@ $('#btnExportJson').onclick=()=>{
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fte_state.json';a.click();
 };
-
-/* Inbound buttons already wired above */
 
 /* Init */
 function init(){
