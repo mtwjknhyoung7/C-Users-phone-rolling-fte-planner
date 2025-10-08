@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Rolling FTE Planner · Access</title>
 <style>
-  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
+  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626;--ok:#16a34a}
   html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
   .wrap{max-width:980px;margin:32px auto;padding:0 12px}
   h1{margin:0 0 12px 0}
+  .chips{display:flex;gap:8px;align-items:center}
   .badge{padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
@@ -19,8 +20,7 @@
   .btn{border-color:#d1d5db}
   .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .muted{color:var(--muted)} .err{color:var(--err)} .ok{color:#16a34a}
-  .hint{font-size:12px;color:#94a3b8}
+  .muted{color:var(--muted)} .err{color:var(--err)} .ok{color:var(--ok)}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -28,7 +28,10 @@
 <div class="wrap">
   <div class="row" style="justify-content:space-between">
     <h1>Rolling FTE Planner · Access</h1>
-    <span id="cfgBadge" class="badge">Loading config…</span>
+    <div class="chips">
+      <span id="cfgBadge" class="badge">Loading config…</span>
+      <span class="badge">access build 2025-10-07a</span>
+    </div>
   </div>
   <p class="muted">Use your account to sign in. Only the owner can create the single Superadmin.</p>
 
@@ -40,7 +43,7 @@
       <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password"></div>
       <div class="row">
         <button id="btnLogin" class="btn primary">Sign in</button>
-        <a href="index.html#safe" class="muted">Dev preview</a>
+        <a href="index.html#safe" class="muted">Dev preview (bypass login)</a>
       </div>
       <div id="loginErr" class="err" style="margin-top:8px"></div>
     </div>
@@ -57,17 +60,10 @@
           <option value="superadmin">Superadmin (owner only)</option>
         </select>
       </div>
-
-      <div class="row" style="align-items:center;margin:6px 0">
-        <input id="manualToggle" type="checkbox" style="width:18px;height:18px;margin:0">
-        <label for="manualToggle" class="hint">Manual override if <code>config.json</code> can’t load (lets you type owner email & code)</label>
-      </div>
-
       <div id="ownerGate">
-        <div class="input"><label>Owner email (from config.json or manual)</label><input id="ownerEmail" type="email" readonly></div>
+        <div class="input"><label>Owner email (from config.json)</label><input id="ownerEmail" type="email" readonly></div>
         <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="code" autocomplete="off"></div>
       </div>
-
       <div class="row">
         <button id="btnCreate" class="btn primary">Create account</button>
       </div>
@@ -86,41 +82,34 @@ function setSession(email,role){ const exp=Date.now()+1000*60*60*12; localStorag
 async function sha256(s){ const enc=new TextEncoder().encode(s); const h=await crypto.subtle.digest('SHA-256',enc); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 
 /* ---------- owner config (loaded from config.json) ---------- */
-let OWNER_EMAIL = '';
-let OWNER_ACCESS_CODE = '';
-
-const badge=document.getElementById('cfgBadge');
-const ownerEmailEl=document.getElementById('ownerEmail');
-const ownerCodeEl=document.getElementById('ownerCode');
-const manualToggle=document.getElementById('manualToggle');
-
-function setOwnerEditable(edit){
-  ownerEmailEl.readOnly = !edit;
-  ownerEmailEl.style.background = edit ? '#fff' : '#f9fafb';
-}
-
-manualToggle.onchange = ()=> setOwnerEditable(manualToggle.checked);
+let OWNER_EMAIL = '';               
+let OWNER_ACCESS_CODE = '';         
 
 async function loadConfig(){
+  const badge=document.getElementById('cfgBadge');
   try{
     const res = await fetch('config.json?ts=' + Date.now(), {cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const cfg = await res.json();
     OWNER_EMAIL = String(cfg.ownerEmail || cfg.owner_email || '').trim().toLowerCase();
     OWNER_ACCESS_CODE = String(cfg.ownerAccessCode || cfg.owner_access_code || '');
-    ownerEmailEl.value = OWNER_EMAIL;
-    badge.textContent = 'Config loaded for owner';
-    badge.classList.add('ok');
-    manualToggle.checked = false;
-    setOwnerEditable(false);
+    document.getElementById('ownerEmail').value = OWNER_EMAIL || '(missing in config.json)';
+    badge.textContent = OWNER_EMAIL ? 'Config loaded ✓' : 'Config missing ownerEmail';
+    badge.classList.toggle('ok', !!OWNER_EMAIL);
   }catch(e){
-    badge.textContent = 'Config NOT loaded. Use manual override or fix /config.json';
+    badge.textContent = 'Config not found';
     badge.classList.remove('ok');
-    manualToggle.checked = true;
-    setOwnerEditable(true);
   }
 }
 loadConfig();
+
+/* ---------- gate owner fields visibility ---------- */
+const roleSel=document.getElementById('createRole');
+function toggleOwnerGate(){
+  document.getElementById('ownerGate').style.display =
+    roleSel.value==='superadmin' ? 'block' : 'none';
+}
+roleSel.onchange=toggleOwnerGate; toggleOwnerGate();
 
 /* ---------- existing session → index ---------- */
 (function autoIn(){
@@ -135,7 +124,7 @@ document.getElementById('btnCreate').onclick = async ()=>{
   const createErr=document.getElementById('createErr'); createErr.textContent='';
   const email=(document.getElementById('createEmail').value||'').trim().toLowerCase();
   const pass=document.getElementById('createPass').value||'';
-  const role=(document.getElementById('createRole').value||'user');
+  const role=roleSel.value;
 
   if(!email){createErr.textContent='Enter your email.';return;}
   if((pass||'').length<8){createErr.textContent='Password must be at least 8 characters.';return;}
@@ -144,36 +133,15 @@ document.getElementById('btnCreate').onclick = async ()=>{
   if(users[email]){createErr.textContent='Account already exists for this email.';return;}
 
   if(role==='superadmin'){
-    const ownerEmailUI=(ownerEmailEl.value||'').trim().toLowerCase();
-    const ownerCodeUI=ownerCodeEl.value||'';
+    const ownerEmailUI=(document.getElementById('ownerEmail').value||'').trim().toLowerCase();
+    const ownerCode=document.getElementById('ownerCode').value||'';
 
-    // accept config.json values; if they don't exist, allow manual override when toggled
-    let checkEmail = OWNER_EMAIL;
-    let checkCode  = OWNER_ACCESS_CODE;
-    if(!checkEmail && manualToggle.checked){
-      checkEmail = ownerEmailUI;
-      checkCode  = ownerCodeUI;
-    }
+    if(!OWNER_EMAIL){ createErr.textContent='Owner config not loaded. Reload the page.'; return; }
+    if(ownerEmailUI !== OWNER_EMAIL){ createErr.textContent='Owner email does not match config.json.'; return; }
+    if(email !== OWNER_EMAIL){ createErr.textContent='The Superadmin account email must equal the owner email.'; return; }
+    if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
 
-    if(!checkEmail){
-      createErr.textContent='Owner config not loaded. Enable Manual override OR fix /config.json and reload.';
-      return;
-    }
-    if(ownerEmailUI !== checkEmail){
-      createErr.textContent='Owner email does not match.';
-      return;
-    }
-    if(email !== checkEmail){
-      createErr.textContent='The Superadmin account email must equal the owner email.';
-      return;
-    }
-    if(ownerCodeUI !== checkCode){
-      createErr.textContent='Owner access code invalid.';
-      return;
-    }
-
-    // Only one superadmin unless replacing with the same owner email
-    const alreadySA = Object.entries(users).some(([em,u])=>u.role==='superadmin' && em!==checkEmail);
+    const alreadySA = Object.entries(users).some(([em,u])=>u.role==='superadmin' && em!==OWNER_EMAIL);
     if(alreadySA){ createErr.textContent='A different Superadmin already exists.'; return; }
   }
 
@@ -190,11 +158,11 @@ document.getElementById('btnLogin').onclick = async ()=>{
   const loginErr=document.getElementById('loginErr'); loginErr.textContent='';
   const email=(document.getElementById('loginEmail').value||'').trim().toLowerCase();
   const pass=document.getElementById('loginPass').value||'';
-  if(!email||!pass){ loginErr.textContent='Enter your email and password.'; return; }
+  if(!email||!pass){loginErr.textContent='Enter your email and password.';return;}
   const users=loadUsers(); const u=users[email];
-  if(!u){ loginErr.textContent='Credentials not found.'; return; }
+  if(!u){loginErr.textContent='Credentials not found.';return;}
   const hash=await sha256(email+':'+pass);
-  if(hash!==u.hash){ loginErr.textContent='Incorrect password.'; return; }
+  if(hash!==u.hash){loginErr.textContent='Incorrect password.';return;}
   setSession(email,u.role); location.href='index.html';
 };
 </script>
