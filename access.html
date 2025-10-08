@@ -46,7 +46,7 @@
 <header class="appbar">
   <div class="row">
     <div class="brand">Rolling FTE Planner · <span class="muted">Access</span></div>
-    <span class="chip">access build 2025-10-07e</span>
+    <span class="chip">access build 2025-10-07f</span>
   </div>
   <div class="row" style="gap:8px">
     <span id="cfgBadge" class="chip">Config: loading…</span>
@@ -77,10 +77,9 @@
         <a href="index.html#safe" class="muted tiny">Dev preview</a>
       </div>
       <div id="loginErr" class="err" style="margin-top:8px"></div>
-      <div class="help tiny">After sign-in you’ll be redirected to the app.</div>
     </div>
 
-    <!-- Create account (Superadmin gate always visible) -->
+    <!-- Create account (Superadmin gate visible) -->
     <div class="card">
       <h3>Create account</h3>
       <div class="input">
@@ -105,7 +104,7 @@
 
       <div class="row" style="gap:10px; flex-wrap:wrap">
         <div class="input" style="flex:1; min-width:220px">
-          <label>Owner email (from config.json)</label>
+          <label>Owner email (config or fallback)</label>
           <input id="ownerEmail" type="email" readonly>
         </div>
         <div class="input" style="flex:1; min-width:180px">
@@ -118,7 +117,7 @@
         <button id="btnCreate" class="btn primary">Create account</button>
       </div>
       <div id="createErr" class="err" style="margin-top:8px"></div>
-      <div class="help tiny">For Superadmin, the email must equal the owner email and the access code must match.</div>
+      <div class="help tiny">For Superadmin, email must equal the owner email and access code must match.</div>
     </div>
 
   </div>
@@ -137,7 +136,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendPasswordResetEmail, onAuthStateChanged
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* Firebase config (your project) */
@@ -164,31 +163,40 @@ try{
   document.getElementById('diagAuth').textContent='failed';
 }
 
-/* ===== Owner config loader (robust) ===== */
-let OWNER_EMAIL=''; let OWNER_ACCESS_CODE='';
+/* ===== Owner config with fallback (no external file required) ===== */
+const FALLBACK_OWNER_EMAIL = "phoneemail07@gmail.com";     // <— works immediately
+const FALLBACK_OWNER_CODE  = "SUPER-OWNER-2025";           // <— works immediately
+
+let OWNER_EMAIL = '';
+let OWNER_ACCESS_CODE = '';
+
 async function loadConfig(){
-  const badge=document.getElementById('cfgBadge');
-  const diag=document.getElementById('diagCfg');
-  const paths=['/config.json','config.json','./config.json'];
+  const badge = document.getElementById('cfgBadge');
+  const diag  = document.getElementById('diagCfg');
+  const paths = ['/config.json','config.json','./config.json'];
   for(const p of paths){
     try{
-      const res=await fetch(p+(p.includes('?')?'':`?ts=${Date.now()}`),{cache:'no-store'});
+      const res = await fetch(p+(p.includes('?')?'':`?ts=${Date.now()}`), {cache:'no-store'});
       if(!res.ok) continue;
-      const text=await res.text();
+      const text = await res.text();
       if(text.trim().startsWith('<')) continue; // SPA redirect guard
-      const cfg=JSON.parse(text);
-      OWNER_EMAIL=String(cfg.ownerEmail||cfg.owner_email||'').trim().toLowerCase();
-      OWNER_ACCESS_CODE=String(cfg.ownerAccessCode||cfg.owner_access_code||'');
-      const el=document.getElementById('ownerEmail'); if(el) el.value=OWNER_EMAIL;
+      const cfg = JSON.parse(text);
+      OWNER_EMAIL = String(cfg.ownerEmail||cfg.owner_email||'').trim().toLowerCase();
+      OWNER_ACCESS_CODE = String(cfg.ownerAccessCode||cfg.owner_access_code||'');
+      document.getElementById('ownerEmail').value = OWNER_EMAIL;
       badge.textContent='Config: loaded'; badge.classList.add('ok'); if(diag) diag.textContent='ok';
       return;
     }catch(e){ /* try next path */ }
   }
-  badge.textContent='Config: missing'; badge.classList.add('err'); if(diag) diag.textContent='missing';
+  // Fallback so you can proceed immediately
+  OWNER_EMAIL = FALLBACK_OWNER_EMAIL.toLowerCase();
+  OWNER_ACCESS_CODE = FALLBACK_OWNER_CODE;
+  document.getElementById('ownerEmail').value = OWNER_EMAIL;
+  badge.textContent='Config: fallback (static)'; badge.classList.add('ok'); if(diag) diag.textContent='fallback';
 }
 await loadConfig();
 
-/* ===== Session writer (for index.html) ===== */
+/* ===== Session writer (what index.html expects) ===== */
 const SESSION_KEY='fte-session';
 const setSession=(email)=>{
   const role = (String(email).trim().toLowerCase()===OWNER_EMAIL)?'superadmin':'user';
@@ -238,10 +246,9 @@ document.getElementById('btnCreate').onclick=async ()=>{
   if((pass||'').length<8){ show(err,'Password must be at least 8 characters.'); return; }
 
   if(role==='superadmin'){
-    if(!OWNER_EMAIL){ show(err,'Owner config not loaded.'); return; }
     const ownerEmailUI=(document.getElementById('ownerEmail').value||'').trim().toLowerCase();
     const ownerCode=document.getElementById('ownerCode').value||'';
-    if(ownerEmailUI!==OWNER_EMAIL){ show(err,'Owner email does not match config.json.'); return; }
+    if(ownerEmailUI!==OWNER_EMAIL){ show(err,'Owner email does not match.'); return; }
     if(email!==OWNER_EMAIL){ show(err,'Superadmin email must equal the owner email.'); return; }
     if(ownerCode!==OWNER_ACCESS_CODE){ show(err,'Owner access code invalid.'); return; }
   }
@@ -263,9 +270,6 @@ document.getElementById('btnCreate').onclick=async ()=>{
     if(e.key==='Enter') document.getElementById('btnCreate').click();
   });
 });
-
-/* Optional auto-route if already signed in (kept off for clarity) */
-onAuthStateChanged(auth,(u)=>{ /* if(u && OWNER_EMAIL){ setSession(u.email||''); location.href='index.html'; } */ });
 </script>
 
 </body>
