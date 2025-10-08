@@ -46,7 +46,7 @@
 <header class="appbar">
   <div class="row">
     <div class="brand">Rolling FTE Planner · <span class="muted">Access</span></div>
-    <span class="chip">access build 2025-10-07d</span>
+    <span class="chip">access build 2025-10-07e</span>
   </div>
   <div class="row" style="gap:8px">
     <span id="cfgBadge" class="chip">Config: loading…</span>
@@ -77,10 +77,10 @@
         <a href="index.html#safe" class="muted tiny">Dev preview</a>
       </div>
       <div id="loginErr" class="err" style="margin-top:8px"></div>
-      <div class="help tiny">Use your email and password. After sign-in you’ll be redirected to the app.</div>
+      <div class="help tiny">After sign-in you’ll be redirected to the app.</div>
     </div>
 
-    <!-- Create account (includes Superadmin gate, always visible) -->
+    <!-- Create account (Superadmin gate always visible) -->
     <div class="card">
       <h3>Create account</h3>
       <div class="input">
@@ -103,7 +103,6 @@
         </select>
       </div>
 
-      <!-- Owner gate (always visible; fields enable when role=superadmin) -->
       <div class="row" style="gap:10px; flex-wrap:wrap">
         <div class="input" style="flex:1; min-width:220px">
           <label>Owner email (from config.json)</label>
@@ -119,12 +118,12 @@
         <button id="btnCreate" class="btn primary">Create account</button>
       </div>
       <div id="createErr" class="err" style="margin-top:8px"></div>
-      <div class="help tiny">To create the single Superadmin, set Role=Superadmin and use the exact owner email & code.</div>
+      <div class="help tiny">For Superadmin, the email must equal the owner email and the access code must match.</div>
     </div>
 
   </div>
 
-  <!-- Live diagnostics (always visible for full transparency) -->
+  <!-- Diagnostics -->
   <div id="diag">
     <div><b>Status</b></div>
     <div>• Config file: <span id="diagCfg">checking…</span></div>
@@ -141,7 +140,7 @@ import {
   sendPasswordResetEmail, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-/* YOUR Firebase config */
+/* Firebase config (your project) */
 const firebaseConfig = {
   apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
   authDomain: "fte-planner.firebaseapp.com",
@@ -165,25 +164,27 @@ try{
   document.getElementById('diagAuth').textContent='failed';
 }
 
-/* ===== Owner config (config.json) ===== */
+/* ===== Owner config loader (robust) ===== */
 let OWNER_EMAIL=''; let OWNER_ACCESS_CODE='';
 async function loadConfig(){
   const badge=document.getElementById('cfgBadge');
-  try{
-    const res=await fetch('config.json?ts='+Date.now(),{cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const cfg=await res.json();
-    OWNER_EMAIL = String(cfg.ownerEmail||cfg.owner_email||'').trim().toLowerCase();
-    OWNER_ACCESS_CODE = String(cfg.ownerAccessCode||cfg.owner_access_code||'');
-    document.getElementById('ownerEmail').value = OWNER_EMAIL;
-    badge.textContent='Config: loaded';
-    badge.classList.add('ok');
-    document.getElementById('diagCfg').textContent='ok';
-  }catch(e){
-    badge.textContent='Config: missing';
-    badge.classList.add('err');
-    document.getElementById('diagCfg').textContent='missing (place config.json at site root)';
+  const diag=document.getElementById('diagCfg');
+  const paths=['/config.json','config.json','./config.json'];
+  for(const p of paths){
+    try{
+      const res=await fetch(p+(p.includes('?')?'':`?ts=${Date.now()}`),{cache:'no-store'});
+      if(!res.ok) continue;
+      const text=await res.text();
+      if(text.trim().startsWith('<')) continue; // SPA redirect guard
+      const cfg=JSON.parse(text);
+      OWNER_EMAIL=String(cfg.ownerEmail||cfg.owner_email||'').trim().toLowerCase();
+      OWNER_ACCESS_CODE=String(cfg.ownerAccessCode||cfg.owner_access_code||'');
+      const el=document.getElementById('ownerEmail'); if(el) el.value=OWNER_EMAIL;
+      badge.textContent='Config: loaded'; badge.classList.add('ok'); if(diag) diag.textContent='ok';
+      return;
+    }catch(e){ /* try next path */ }
   }
+  badge.textContent='Config: missing'; badge.classList.add('err'); if(diag) diag.textContent='missing';
 }
 await loadConfig();
 
@@ -197,20 +198,16 @@ const setSession=(email)=>{
 
 /* ===== UI helpers ===== */
 const show=(el,msg)=>{ el.textContent=msg||''; };
-const enableOwnerGate = (on) => {
-  document.getElementById('ownerCode').disabled = !on;
-  // ownerEmail is readonly by design; we keep it visible at all times.
-};
-const roleSel=document.getElementById('createRole');
-roleSel.addEventListener('change',()=>enableOwnerGate(roleSel.value==='superadmin'));
-enableOwnerGate(roleSel.value==='superadmin');
-
 document.getElementById('toggleLoginPass').onclick=()=>{
   const f=document.getElementById('loginPass'); f.type=(f.type==='password'?'text':'password');
 };
 document.getElementById('toggleCreatePass').onclick=()=>{
   const f=document.getElementById('createPass'); f.type=(f.type==='password'?'text':'password');
 };
+const roleSel=document.getElementById('createRole');
+const enableOwnerGate=(on)=>{ document.getElementById('ownerCode').disabled=!on; };
+roleSel.addEventListener('change',()=>enableOwnerGate(roleSel.value==='superadmin'));
+enableOwnerGate(roleSel.value==='superadmin');
 
 /* ===== Auth handlers ===== */
 document.getElementById('btnLogin').onclick=async ()=>{
@@ -237,7 +234,6 @@ document.getElementById('btnCreate').onclick=async ()=>{
   const email=(document.getElementById('createEmail').value||'').trim().toLowerCase();
   const pass=document.getElementById('createPass').value||'';
   const role=roleSel.value;
-
   if(!email){ show(err,'Enter your email.'); return; }
   if((pass||'').length<8){ show(err,'Password must be at least 8 characters.'); return; }
 
@@ -268,13 +264,8 @@ document.getElementById('btnCreate').onclick=async ()=>{
   });
 });
 
-/* Auto-route if already signed in (and config present) */
-onAuthStateChanged(auth, (u)=>{
-  if(u && OWNER_EMAIL){
-    // You can uncomment to auto-route immediately on existing session:
-    // setSession(u.email||''); location.href='index.html';
-  }
-});
+/* Optional auto-route if already signed in (kept off for clarity) */
+onAuthStateChanged(auth,(u)=>{ /* if(u && OWNER_EMAIL){ setSession(u.email||''); location.href='index.html'; } */ });
 </script>
 
 </body>
