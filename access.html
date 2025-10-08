@@ -1,51 +1,81 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Rolling FTE Planner · Access</title>
+
+<!-- Brand / theme (matches index.html) -->
 <style>
-  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
-  html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:#fff}
-  .chip{padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px}
-  .wrap{max-width:980px;margin:22px auto;padding:0 12px}
-  h1{margin:0 0 12px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
+  :root{
+    --bg:#f5f7fb; --panel:#fff; --muted:#64748b; --text:#0f172a;
+    --border:#e5e7eb; --brand:#18b6a0; --ok:#16a34a; --err:#dc2626; --chip:#eef2ff
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),#f3f6fb;color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  header.appbar{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+  .brand{font-weight:800;letter-spacing:.2px}
+  .chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
+  .wrap{max-width:980px;margin:18px auto;padding:0 12px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:14px}
+  .card h3{margin:0 0 8px 0}
   .input{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
   .input label{font-size:12px;color:var(--muted)}
-  input,select,button{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px}
-  button{cursor:pointer;background:#fff}
-  .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
+  input,select,button{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px;background:#fff}
+  input[type="password"]{letter-spacing:.1em}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+  .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
   .muted{color:var(--muted)}
+  .ok{color:var(--ok)}
   .err{color:var(--err)}
-  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .tiny{font-size:12px}
+  @media (max-width:900px){.cards{grid-template-columns:1fr}}
 </style>
+
+<!-- Chart: none here. Firebase only. -->
+<!-- Firebase Modular SDK -->
+<script type="module" crossorigin src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+<script type="module" crossorigin src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
 </head>
 <body>
 
-<header>
+<header class="appbar">
   <div class="row">
-    <strong>Rolling FTE Planner · Access</strong>
-    <span class="chip" id="buildChip">access build 2025-10-07b</span>
+    <div class="brand">Rolling FTE Planner · <span class="muted">Access</span></div>
+    <span class="chip">access build 2025-10-07b</span>
   </div>
-  <span id="cfgBadge" class="chip">Loading config…</span>
+  <div class="badges">
+    <span id="cfgBadge" class="chip">Loading config…</span>
+    <span id="authBadge" class="chip">Loading auth…</span>
+  </div>
 </header>
 
 <div class="wrap">
-  <p class="muted">Sign in with your email. Only the owner can create the single Superadmin.</p>
+  <p class="muted tiny">Sign in with your email. Only the <b>owner</b> can create the single <b>Superadmin</b>.</p>
 
-  <div class="grid">
+  <div class="cards">
+
     <!-- Sign in -->
     <div class="card">
       <h3>Sign in</h3>
-      <div class="input"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
-      <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password"></div>
+      <div class="input">
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username">
+      </div>
+      <div class="input">
+        <label>Password</label>
+        <div class="row" style="gap:8px; width:100%">
+          <input id="loginPass" type="password" placeholder="********" autocomplete="current-password" style="flex:1">
+          <button id="toggleLoginPass" class="btn" title="Show/Hide">👁</button>
+        </div>
+      </div>
       <div class="row">
         <button id="btnLogin" class="btn primary">Sign in</button>
         <button id="btnReset" class="btn">Reset password</button>
+        <a href="index.html#safe" class="muted tiny">Dev preview</a>
       </div>
       <div id="loginErr" class="err" style="margin-top:8px"></div>
     </div>
@@ -53,138 +83,207 @@
     <!-- Create account -->
     <div class="card">
       <h3>Create account</h3>
-      <div class="input"><label>Email</label><input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
-      <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password"></div>
-
+      <div class="input">
+        <label>Email</label>
+        <input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username">
+      </div>
+      <div class="input">
+        <label>Password (min 8)</label>
+        <div class="row" style="gap:8px; width:100%">
+          <input id="createPass" type="password" placeholder="********" autocomplete="new-password" style="flex:1" minlength="8">
+          <button id="toggleCreatePass" class="btn" title="Show/Hide">👁</button>
+        </div>
+      </div>
       <div class="input">
         <label>Role</label>
         <select id="createRole">
-          <option value="user" selected>Regular user</option>
+          <option value="user">Regular user</option>
           <option value="superadmin">Superadmin (owner only)</option>
         </select>
       </div>
-
-      <div id="ownerGate" style="display:none">
-        <div class="input"><label>Owner email (from config.json)</label><input id="ownerEmail" type="email" readonly></div>
-        <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="code" autocomplete="off"></div>
+      <div id="ownerGate">
+        <div class="input">
+          <label>Owner email (from config.json)</label>
+          <input id="ownerEmail" type="email" readonly>
+        </div>
+        <div class="input">
+          <label>Owner access code</label>
+          <input id="ownerCode" type="password" placeholder="code" autocomplete="off">
+        </div>
       </div>
-
       <div class="row">
         <button id="btnCreate" class="btn primary">Create account</button>
       </div>
       <div id="createErr" class="err" style="margin-top:8px"></div>
     </div>
+
   </div>
+
+  <p class="muted tiny" style="margin-top:12px">
+    Trouble signing in? Confirm your site’s domain is listed in Firebase Authentication → <b>Settings → Authorized domains</b>,
+    and that <code>config.json</code> includes <code>ownerEmail</code> and <code>ownerAccessCode</code>.
+  </p>
 </div>
 
-<!-- Firebase + logic -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth, onAuthStateChanged,
-    createUserWithEmailAndPassword, signInWithEmailAndPassword,
-    sendPasswordResetEmail
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+/* ===========================================================
+   BRAND ACCESS · Firebase Auth + Owner Gate (config.json)
+   =========================================================== */
 
-  // ---- Your Firebase project (replace only if you created a different project)
-  const firebaseConfig = {
-    apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
-    authDomain: "fte-planner.firebaseapp.com",
-    projectId: "fte-planner",
-    storageBucket: "fte-planner.firebasestorage.app",
-    messagingSenderId: "410936425819",
-    appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
-    measurementId: "G-0BZP3LETBE"
-  };
+/* ---------------- Firebase init ---------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+/* 1) Paste YOUR Firebase web config here (from Firebase Console → Project settings → Web app) */
+const firebaseConfig = {
+  apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+  authDomain: "fte-planner.firebaseapp.com",
+  projectId: "fte-planner",
+  storageBucket: "fte-planner.firebasestorage.app",
+  messagingSenderId: "410936425819",
+  appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+  measurementId: "G-0BZP3LETBE"
+};
 
-  // ---- Config (owner email + code) pulled from config.json
-  let OWNER_EMAIL = "";
-  let OWNER_ACCESS_CODE = "";
-  async function loadConfig(){
-    const badge=document.getElementById('cfgBadge');
-    try{
-      const res = await fetch('config.json?ts=' + Date.now(), {cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const cfg = await res.json();
-      OWNER_EMAIL = String(cfg.ownerEmail || cfg.owner_email || '').trim().toLowerCase();
-      OWNER_ACCESS_CODE = String(cfg.ownerAccessCode || cfg.owner_access_code || '');
-      document.getElementById('ownerEmail').value = OWNER_EMAIL;
-      badge.textContent = 'Config loaded for owner';
-    }catch(e){
-      badge.textContent = 'Config missing';
-    }
+let app, auth;
+try{
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  document.getElementById('authBadge').textContent = 'Auth ready';
+  document.getElementById('authBadge').classList.add('ok');
+}catch(e){
+  document.getElementById('authBadge').textContent = 'Auth init failed';
+}
+
+/* ---------------- Owner gate (config.json) ---------------- */
+let OWNER_EMAIL = '';
+let OWNER_ACCESS_CODE = '';
+
+async function loadConfig(){
+  const badge = document.getElementById('cfgBadge');
+  try{
+    const res = await fetch('config.json?ts='+Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const cfg = await res.json();
+    OWNER_EMAIL = String(cfg.ownerEmail || cfg.owner_email || '').trim().toLowerCase();
+    OWNER_ACCESS_CODE = String(cfg.ownerAccessCode || cfg.owner_access_code || '');
+    document.getElementById('ownerEmail').value = OWNER_EMAIL;
+    badge.textContent = 'Config loaded for owner';
+    badge.classList.add('ok');
+  }catch(e){
+    badge.textContent = 'Config not found';
   }
-  loadConfig();
+}
+loadConfig();
 
-  // ---- If already signed in, go to app
-  onAuthStateChanged(auth, (user) => {
-    if (user) location.href = 'index.html';
+/* ---------------- UI helpers ---------------- */
+const USERS_KEY='fte-session';
+const setSession=(email)=>{
+  const role = (email.trim().toLowerCase()===OWNER_EMAIL)?'superadmin':'user';
+  const exp = Date.now() + 1000*60*60*12; // 12h
+  localStorage.setItem(USERS_KEY, JSON.stringify({email,role,exp}));
+};
+const errTxt = (el,msg)=>{ el.textContent = msg || ''; };
+
+const roleSel = document.getElementById('createRole');
+function toggleOwnerGate(){
+  document.getElementById('ownerGate').style.display =
+    roleSel.value==='superadmin' ? 'block' : 'none';
+}
+roleSel.onchange = toggleOwnerGate; toggleOwnerGate();
+
+document.getElementById('toggleLoginPass').onclick = ()=>{
+  const f=document.getElementById('loginPass');
+  f.type = f.type==='password'?'text':'password';
+};
+document.getElementById('toggleCreatePass').onclick = ()=>{
+  const f=document.getElementById('createPass');
+  f.type = f.type==='password'?'text':'password';
+};
+
+/* ---------------- Auth flows ---------------- */
+document.getElementById('btnLogin').onclick = async ()=>{
+  const loginErr = document.getElementById('loginErr');
+  errTxt(loginErr,'');
+  const email=(document.getElementById('loginEmail').value||'').trim();
+  const pass=document.getElementById('loginPass').value||'';
+  if(!email||!pass){ errTxt(loginErr,'Enter your email and password.'); return; }
+  try{
+    await signInWithEmailAndPassword(auth,email,pass);
+    setSession(email);
+    location.href='index.html';
+  }catch(e){
+    errTxt(loginErr, e?.message || 'Sign-in failed.');
+  }
+};
+
+document.getElementById('btnReset').onclick = async ()=>{
+  const email=(document.getElementById('loginEmail').value||'').trim();
+  const loginErr = document.getElementById('loginErr');
+  errTxt(loginErr,'');
+  if(!email){ errTxt(loginErr,'Enter your email above first.'); return; }
+  try{
+    await sendPasswordResetEmail(auth,email);
+    errTxt(loginErr,'Password reset email sent. Check your inbox.'); loginErr.classList.remove('err'); loginErr.classList.add('ok');
+  }catch(e){
+    errTxt(loginErr, e?.message || 'Reset failed.');
+  }
+};
+
+document.getElementById('btnCreate').onclick = async ()=>{
+  const createErr = document.getElementById('createErr'); errTxt(createErr,'');
+  const email=(document.getElementById('createEmail').value||'').trim();
+  const pass=document.getElementById('createPass').value||'';
+  const role=roleSel.value;
+
+  if(!email){ errTxt(createErr,'Enter your email.'); return; }
+  if((pass||'').length<8){ errTxt(createErr,'Password must be at least 8 characters.'); return; }
+
+  if(role==='superadmin'){
+    if(!OWNER_EMAIL){ errTxt(createErr,'Owner config not loaded. Reload.'); return; }
+    const ownerEmailUI=(document.getElementById('ownerEmail').value||'').trim().toLowerCase();
+    const ownerCode=document.getElementById('ownerCode').value||'';
+    if(ownerEmailUI!==OWNER_EMAIL){ errTxt(createErr,'Owner email does not match config.json.'); return; }
+    if(email.toLowerCase()!==OWNER_EMAIL){ errTxt(createErr,'Superadmin email must equal the owner email.'); return; }
+    if(ownerCode!==OWNER_ACCESS_CODE){ errTxt(createErr,'Owner access code invalid.'); return; }
+  }
+
+  try{
+    await createUserWithEmailAndPassword(auth,email,pass);
+    setSession(email);
+    location.href='index.html';
+  }catch(e){
+    errTxt(createErr, e?.message || 'Account creation failed.');
+  }
+};
+
+/* Allow Enter to submit quickly */
+['loginEmail','loginPass'].forEach(id=>{
+  document.getElementById(id).addEventListener('keypress', e=>{
+    if(e.key==='Enter') document.getElementById('btnLogin').click();
   });
+});
+['createEmail','createPass','ownerCode'].forEach(id=>{
+  document.getElementById(id).addEventListener('keypress', e=>{
+    if(e.key==='Enter') document.getElementById('btnCreate').click();
+  });
+});
 
-  // ---- UI helpers
-  const roleSel = document.getElementById('createRole');
-  function toggleOwnerGate(){
-    document.getElementById('ownerGate').style.display =
-      roleSel.value==='superadmin' ? 'block' : 'none';
+/* Auto-route if already signed in (nice UX) */
+onAuthStateChanged(auth, (u)=>{
+  // If already authenticated AND we have owner config, set session/route.
+  if(u && OWNER_EMAIL){
+    setSession(u.email||'');
+    // stay if we just arrived and want to create superadmin first time? We'll still allow navigation:
+    // If you prefer to stay on access while not having session set, comment the next line.
+    // But better to forward into the app:
+    // location.href='index.html';
   }
-  roleSel.onchange = toggleOwnerGate; toggleOwnerGate();
-
-  // ---- Create account
-  document.getElementById('btnCreate').onclick = async () => {
-    const createErr = document.getElementById('createErr'); createErr.textContent='';
-    const email = (document.getElementById('createEmail').value||'').trim().toLowerCase();
-    const pass  = document.getElementById('createPass').value||'';
-    const role  = roleSel.value;
-
-    if(!email){ createErr.textContent='Enter your email.'; return; }
-    if(pass.length<8){ createErr.textContent='Password must be at least 8 characters.'; return; }
-
-    try{
-      if(role==='superadmin'){
-        if(!OWNER_EMAIL){ createErr.textContent='Owner config not loaded.'; return; }
-        const ownerCode = document.getElementById('ownerCode').value||'';
-        if(email !== OWNER_EMAIL){ createErr.textContent='Superadmin email must equal the owner email.'; return; }
-        if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
-      }
-
-      await createUserWithEmailAndPassword(auth, email, pass);
-      // Firebase will sign the user in and the onAuthStateChanged above redirects to index.html
-    }catch(err){
-      createErr.textContent = (err?.message||'Create failed');
-    }
-  };
-
-  // ---- Login
-  document.getElementById('btnLogin').onclick = async () => {
-    const loginErr = document.getElementById('loginErr'); loginErr.textContent='';
-    const email = (document.getElementById('loginEmail').value||'').trim();
-    const pass  = document.getElementById('loginPass').value||'';
-    if(!email || !pass){ loginErr.textContent='Enter your email and password.'; return; }
-    try{
-      await signInWithEmailAndPassword(auth, email, pass);
-      // Redirect happens from onAuthStateChanged
-    }catch(err){
-      loginErr.textContent = (err?.message||'Sign-in failed');
-    }
-  };
-
-  // ---- Reset password
-  document.getElementById('btnReset').onclick = async () => {
-    const loginErr = document.getElementById('loginErr'); loginErr.textContent='';
-    const email = (document.getElementById('loginEmail').value||'').trim();
-    if(!email){ loginErr.textContent='Enter your email first, then click reset.'; return; }
-    try{
-      await sendPasswordResetEmail(auth, email);
-      loginErr.textContent='Reset email sent (check inbox).';
-      loginErr.classList.remove('err');
-    }catch(err){
-      loginErr.textContent = (err?.message||'Reset failed');
-      loginErr.classList.add('err');
-    }
-  };
+});
 </script>
+
 </body>
 </html>
