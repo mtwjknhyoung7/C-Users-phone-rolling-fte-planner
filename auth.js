@@ -1,44 +1,79 @@
-// auth.js
-// 1) Replace with your Firebase Web App config (Firebase Console → Project settings → Web app)
+/* auth.js — Firebase auth glue for Rolling FTE Planner
+   Requires:
+   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+*/
+
 const firebaseConfig = {
-  apiKey:      "YOUR_API_KEY",
-  authDomain:  "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:   "YOUR_PROJECT_ID",
-  appId:       "YOUR_APP_ID"
+  apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+  authDomain: "fte-planner.firebaseapp.com",
+  projectId: "fte-planner",
+  storageBucket: "fte-planner.firebasestorage.app",
+  messagingSenderId: "410936425819",
+  appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+  measurementId: "G-0BZP3LETBE"
 };
 
-// 2) Set your owner email (used to mark the session as superadmin)
+// ← set YOUR owner details
 const OWNER_EMAIL = "phoneemail07@gmail.com";
+const OWNER_ACCESS_CODE = "CHANGE_ME_OWNER_CODE";  // choose any secret string
 
-// --- do not edit below ---
-if (!window.firebase) throw new Error("Firebase SDK not loaded (check script tags in access.html)");
-
+// Init Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// Persist sessions locally so page refresh stays signed in
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-/**
- * Sign in via Firebase and write the same session shape your app expects:
- * localStorage key: "fte-session" → { email, role, exp }
- */
-async function signInAndSetSession(email, password) {
-  const cred = await auth.signInWithEmailAndPassword(email.trim(), password);
-  const user = cred.user;
-  const role = (user.email || "").toLowerCase() === OWNER_EMAIL.toLowerCase() ? "superadmin" : "user";
-  const exp  = Date.now() + 1000 * 60 * 60 * 12; // 12 hours
-  localStorage.setItem("fte-session", JSON.stringify({ email: user.email, role, exp }));
-  location.href = "index.html";
-}
+// ---- helpers exposed to pages ----
+window.fteAuth = {
+  // redirect to access.html if not signed in
+  guardOrRedirect() {
+    auth.onAuthStateChanged(u => {
+      if (!u) location.href = "access.html";
+    });
+  },
 
-/** Optional helper to sign out and clear the session */
-function signOutAndClear() {
-  try { localStorage.removeItem("fte-session"); } catch {}
-  auth.signOut().finally(() => location.href = "access.html");
-}
+  // if already signed in, go straight to app
+  goToAppIfSignedIn() {
+    auth.onAuthStateChanged(u => {
+      if (u) location.href = "index.html";
+    });
+  },
 
-// Expose for access.html
-window.__AUTH__ = { signInAndSetSession, signOutAndClear, auth };
+  async signIn(email, pass) {
+    await auth.signInWithEmailAndPassword(String(email || "").trim(), pass || "");
+  },
 
-/** If already logged in (Firebase), do nothing here.
- *  access.html calls signInAndSetSession() on button click.
- */
-auth.onAuthStateChanged(() => {});
+  async signOut() {
+    await auth.signOut();
+    location.href = "access.html";
+  },
+
+  /**
+   * Create account.
+   * role: "user" | "superadmin"
+   * ownerEmailUI: value shown in the UI (read-only), must equal OWNER_EMAIL when role=superadmin
+   * ownerCode: must equal OWNER_ACCESS_CODE when role=superadmin
+   */
+  async createAccount(email, pass, role, ownerEmailUI, ownerCode) {
+    email = String(email || "").trim().toLowerCase();
+    role = String(role || "user");
+
+    if (!email) throw new Error("Enter an email.");
+    if (!pass || pass.length < 8) throw new Error("Password must be at least 8 characters.");
+
+    if (role === "superadmin") {
+      if (!OWNER_EMAIL) throw new Error("Owner not configured.");
+      if (String(ownerEmailUI || "").toLowerCase() !== OWNER_EMAIL.toLowerCase())
+        throw new Error("Owner email does not match.");
+      if (email !== OWNER_EMAIL.toLowerCase())
+        throw new Error("Superadmin account must use the owner email.");
+      if (ownerCode !== OWNER_ACCESS_CODE)
+        throw new Error("Owner access code invalid.");
+    }
+
+    // Note: without a backend we can’t set tamper-proof roles.
+    // We only gate superadmin creation by email + code.
+    await auth.createUserWithEmailAndPassword(email, pass);
+  }
+};
