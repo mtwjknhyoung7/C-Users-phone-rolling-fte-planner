@@ -7,27 +7,35 @@
 <style>
   :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--err:#dc2626}
   html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:980px;margin:32px auto;padding:0 12px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:#fff}
+  .chip{padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px}
+  .wrap{max-width:980px;margin:22px auto;padding:0 12px}
   h1{margin:0 0 12px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
   .input{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
   .input label{font-size:12px;color:var(--muted)}
   input,select,button{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px}
   button{cursor:pointer;background:#fff}
   .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .muted{color:var(--muted)} .err{color:var(--err)}
+  .muted{color:var(--muted)}
+  .err{color:var(--err)}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="row" style="justify-content:space-between">
-    <h1>Rolling FTE Planner · Access</h1>
-    <span class="muted">build 2025-10-07a</span>
+
+<header>
+  <div class="row">
+    <strong>Rolling FTE Planner · Access</strong>
+    <span class="chip" id="buildChip">access build 2025-10-07b</span>
   </div>
-  <p class="muted">Sign in, or create an account. Only the owner can create the single Superadmin account.</p>
+  <span id="cfgBadge" class="chip">Loading config…</span>
+</header>
+
+<div class="wrap">
+  <p class="muted">Sign in with your email. Only the owner can create the single Superadmin.</p>
 
   <div class="grid">
     <!-- Sign in -->
@@ -35,7 +43,10 @@
       <h3>Sign in</h3>
       <div class="input"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
       <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password"></div>
-      <div class="row"><button id="btnLogin" class="btn primary">Sign in</button></div>
+      <div class="row">
+        <button id="btnLogin" class="btn primary">Sign in</button>
+        <button id="btnReset" class="btn">Reset password</button>
+      </div>
       <div id="loginErr" class="err" style="margin-top:8px"></div>
     </div>
 
@@ -44,67 +55,135 @@
       <h3>Create account</h3>
       <div class="input"><label>Email</label><input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
       <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password"></div>
+
       <div class="input">
         <label>Role</label>
         <select id="createRole">
-          <option value="user">Regular user</option>
+          <option value="user" selected>Regular user</option>
           <option value="superadmin">Superadmin (owner only)</option>
         </select>
       </div>
-      <div id="ownerGate">
-        <div class="input"><label>Owner email</label><input id="ownerEmail" type="email" readonly></div>
-        <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="code"></div>
+
+      <div id="ownerGate" style="display:none">
+        <div class="input"><label>Owner email (from config.json)</label><input id="ownerEmail" type="email" readonly></div>
+        <div class="input"><label>Owner access code</label><input id="ownerCode" type="password" placeholder="code" autocomplete="off"></div>
       </div>
-      <div class="row"><button id="btnCreate" class="btn primary">Create account</button></div>
+
+      <div class="row">
+        <button id="btnCreate" class="btn primary">Create account</button>
+      </div>
       <div id="createErr" class="err" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
 
-<!-- Firebase SDKs (compat) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<!-- Your auth glue -->
-<script src="/auth.js"></script>
-<script>
-  // If already signed in, go straight to the app.
-  window.fteAuth.goToAppIfSignedIn();
+<!-- Firebase + logic -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    sendPasswordResetEmail
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // Show/hide owner gate by role & show owner email constant from auth.js
-  const roleSel = document.getElementById('createRole');
-  const ownerGate = document.getElementById('ownerGate');
-  function toggleGate(){ ownerGate.style.display = roleSel.value === 'superadmin' ? 'block' : 'none'; }
-  toggleGate(); roleSel.onchange = toggleGate;
-
-  // Fill owner email (comes from auth.js)
-  // We can’t import constants directly; show text to user as a reminder.
-  document.getElementById('ownerEmail').value = "phoneemail07@gmail.com";
-
-  // Wire buttons
-  document.getElementById('btnLogin').onclick = async () => {
-    const err = document.getElementById('loginErr'); err.textContent = '';
-    try {
-      await window.fteAuth.signIn(
-        document.getElementById('loginEmail').value,
-        document.getElementById('loginPass').value
-      );
-      location.href = 'index.html';
-    } catch (e) { err.textContent = e.message; }
+  // ---- Your Firebase project (replace only if you created a different project)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+    authDomain: "fte-planner.firebaseapp.com",
+    projectId: "fte-planner",
+    storageBucket: "fte-planner.firebasestorage.app",
+    messagingSenderId: "410936425819",
+    appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+    measurementId: "G-0BZP3LETBE"
   };
 
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // ---- Config (owner email + code) pulled from config.json
+  let OWNER_EMAIL = "";
+  let OWNER_ACCESS_CODE = "";
+  async function loadConfig(){
+    const badge=document.getElementById('cfgBadge');
+    try{
+      const res = await fetch('config.json?ts=' + Date.now(), {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const cfg = await res.json();
+      OWNER_EMAIL = String(cfg.ownerEmail || cfg.owner_email || '').trim().toLowerCase();
+      OWNER_ACCESS_CODE = String(cfg.ownerAccessCode || cfg.owner_access_code || '');
+      document.getElementById('ownerEmail').value = OWNER_EMAIL;
+      badge.textContent = 'Config loaded for owner';
+    }catch(e){
+      badge.textContent = 'Config missing';
+    }
+  }
+  loadConfig();
+
+  // ---- If already signed in, go to app
+  onAuthStateChanged(auth, (user) => {
+    if (user) location.href = 'index.html';
+  });
+
+  // ---- UI helpers
+  const roleSel = document.getElementById('createRole');
+  function toggleOwnerGate(){
+    document.getElementById('ownerGate').style.display =
+      roleSel.value==='superadmin' ? 'block' : 'none';
+  }
+  roleSel.onchange = toggleOwnerGate; toggleOwnerGate();
+
+  // ---- Create account
   document.getElementById('btnCreate').onclick = async () => {
-    const err = document.getElementById('createErr'); err.textContent = '';
-    try {
-      await window.fteAuth.createAccount(
-        document.getElementById('createEmail').value,
-        document.getElementById('createPass').value,
-        document.getElementById('createRole').value,
-        document.getElementById('ownerEmail').value,
-        document.getElementById('ownerCode').value
-      );
-      // auto sign-in will happen; if not, prompt user to sign in
-      alert('Account created. Please sign in.');
-    } catch (e) { err.textContent = e.message; }
+    const createErr = document.getElementById('createErr'); createErr.textContent='';
+    const email = (document.getElementById('createEmail').value||'').trim().toLowerCase();
+    const pass  = document.getElementById('createPass').value||'';
+    const role  = roleSel.value;
+
+    if(!email){ createErr.textContent='Enter your email.'; return; }
+    if(pass.length<8){ createErr.textContent='Password must be at least 8 characters.'; return; }
+
+    try{
+      if(role==='superadmin'){
+        if(!OWNER_EMAIL){ createErr.textContent='Owner config not loaded.'; return; }
+        const ownerCode = document.getElementById('ownerCode').value||'';
+        if(email !== OWNER_EMAIL){ createErr.textContent='Superadmin email must equal the owner email.'; return; }
+        if(ownerCode !== OWNER_ACCESS_CODE){ createErr.textContent='Owner access code invalid.'; return; }
+      }
+
+      await createUserWithEmailAndPassword(auth, email, pass);
+      // Firebase will sign the user in and the onAuthStateChanged above redirects to index.html
+    }catch(err){
+      createErr.textContent = (err?.message||'Create failed');
+    }
+  };
+
+  // ---- Login
+  document.getElementById('btnLogin').onclick = async () => {
+    const loginErr = document.getElementById('loginErr'); loginErr.textContent='';
+    const email = (document.getElementById('loginEmail').value||'').trim();
+    const pass  = document.getElementById('loginPass').value||'';
+    if(!email || !pass){ loginErr.textContent='Enter your email and password.'; return; }
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+      // Redirect happens from onAuthStateChanged
+    }catch(err){
+      loginErr.textContent = (err?.message||'Sign-in failed');
+    }
+  };
+
+  // ---- Reset password
+  document.getElementById('btnReset').onclick = async () => {
+    const loginErr = document.getElementById('loginErr'); loginErr.textContent='';
+    const email = (document.getElementById('loginEmail').value||'').trim();
+    if(!email){ loginErr.textContent='Enter your email first, then click reset.'; return; }
+    try{
+      await sendPasswordResetEmail(auth, email);
+      loginErr.textContent='Reset email sent (check inbox).';
+      loginErr.classList.remove('err');
+    }catch(err){
+      loginErr.textContent = (err?.message||'Reset failed');
+      loginErr.classList.add('err');
+    }
   };
 </script>
 </body>
