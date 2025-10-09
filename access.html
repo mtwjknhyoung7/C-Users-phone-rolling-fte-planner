@@ -1,276 +1,148 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Rolling FTE Planner · Access</title>
-
 <style>
   :root{
-    --bg:#f5f7fb; --panel:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb;
-    --brand:#18b6a0; --ok:#16a34a; --err:#dc2626; --chip:#eef2ff
+    --bg:#f6f8fc; --panel:#fff; --border:#e5e7eb; --muted:#64748b;
+    --brand:#18b6a0; --brand2:#12927f; --err:#dc2626; --ok:#16a34a;
   }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),#f3f6fb;color:var(--text);
-    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  header.appbar{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--border);
-    padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+  html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:980px;margin:40px auto;padding:0 14px}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
   .brand{font-weight:800;letter-spacing:.2px}
-  .chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
-  .wrap{max-width:980px;margin:18px auto;padding:0 12px}
-  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:14px}
-  .card h3{margin:0 0 8px 0}
-  .input{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+  .badge{padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+  h3{margin:0 0 10px 0}
+  .input{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
   .input label{font-size:12px;color:var(--muted)}
-  input,select,button{height:40px;border:1px solid var(--border);border-radius:10px;padding:8px;background:#fff}
-  input[type="password"]{letter-spacing:.1em}
+  input,button{height:44px;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px}
+  button{cursor:pointer;background:#fff}
+  .btn.primary{background:linear-gradient(180deg,var(--brand),var(--brand2));color:#fff;border:none}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
-  .btn.primary{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none}
-  .muted{color:var(--muted)}
+  .err{color:var(--err);margin-top:8px;min-height:18px}
   .ok{color:var(--ok)}
-  .err{color:var(--err)}
-  .tiny{font-size:12px}
-  #diag{margin-top:10px;border:1px dashed var(--border);border-radius:12px;background:#fff;padding:10px}
-  .help{font-size:12px;color:#475569}
-  @media (max-width:900px){.cards{grid-template-columns:1fr}}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
-
-<!-- Firebase (modular) -->
-<script type="module" crossorigin src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-<script type="module" crossorigin src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
 </head>
 <body>
-
-<header class="appbar">
-  <div class="row">
-    <div class="brand">Rolling FTE Planner · <span class="muted">Access</span></div>
-    <span class="chip">access build 2025-10-07f</span>
-  </div>
-  <div class="row" style="gap:8px">
-    <span id="cfgBadge" class="chip">Config: loading…</span>
-    <span id="authBadge" class="chip">Auth: loading…</span>
-  </div>
-</header>
-
 <div class="wrap">
-  <div class="cards">
+  <header>
+    <div class="brand">Rolling FTE Planner</div>
+    <span class="badge">access build 2025-10-09b</span>
+  </header>
 
+  <div class="grid">
     <!-- Sign in -->
     <div class="card">
       <h3>Sign in</h3>
       <div class="input">
         <label>Email</label>
-        <input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username">
+        <input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username" spellcheck="false">
       </div>
       <div class="input">
         <label>Password</label>
-        <div class="row" style="gap:8px; width:100%">
-          <input id="loginPass" type="password" placeholder="********" autocomplete="current-password" style="flex:1">
-          <button id="toggleLoginPass" class="btn" title="Show/Hide">👁</button>
-        </div>
+        <input id="loginPass" type="password" placeholder="********" autocomplete="current-password">
       </div>
-      <div class="row" style="justify-content:space-between">
+      <div class="row">
         <button id="btnLogin" class="btn primary">Sign in</button>
-        <button id="btnReset" class="btn">Reset password</button>
-        <a href="index.html#safe" class="muted tiny">Dev preview</a>
+        <button id="btnForgot" class="btn">Forgot password</button>
       </div>
-      <div id="loginErr" class="err" style="margin-top:8px"></div>
+      <div id="loginErr" class="err"></div>
     </div>
 
-    <!-- Create account (Superadmin gate visible) -->
+    <!-- Create account -->
     <div class="card">
       <h3>Create account</h3>
       <div class="input">
         <label>Email</label>
-        <input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username">
+        <input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username" spellcheck="false">
       </div>
       <div class="input">
         <label>Password (min 8)</label>
-        <div class="row" style="gap:8px; width:100%">
-          <input id="createPass" type="password" placeholder="********" autocomplete="new-password" style="flex:1" minlength="8">
-          <button id="toggleCreatePass" class="btn" title="Show/Hide">👁</button>
-        </div>
+        <input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password">
       </div>
-
-      <div class="input">
-        <label>Role</label>
-        <select id="createRole">
-          <option value="user" selected>Regular user</option>
-          <option value="superadmin">Superadmin (owner only)</option>
-        </select>
-      </div>
-
-      <div class="row" style="gap:10px; flex-wrap:wrap">
-        <div class="input" style="flex:1; min-width:220px">
-          <label>Owner email (config or fallback)</label>
-          <input id="ownerEmail" type="email" readonly>
-        </div>
-        <div class="input" style="flex:1; min-width:180px">
-          <label>Owner access code</label>
-          <input id="ownerCode" type="password" placeholder="code" autocomplete="off">
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="btnCreate" class="btn primary">Create account</button>
-      </div>
-      <div id="createErr" class="err" style="margin-top:8px"></div>
-      <div class="help tiny">For Superadmin, email must equal the owner email and access code must match.</div>
+      <button id="btnCreate" class="btn primary">Create account</button>
+      <div id="createErr" class="err"></div>
     </div>
-
-  </div>
-
-  <!-- Diagnostics -->
-  <div id="diag">
-    <div><b>Status</b></div>
-    <div>• Config file: <span id="diagCfg">checking…</span></div>
-    <div>• Firebase Auth: <span id="diagAuth">checking…</span></div>
-    <div>• Authorized domain: if you see <i>auth/unauthorized-domain</i>, add your domain in Firebase → Authentication → Settings → Authorized domains.</div>
   </div>
 </div>
 
+<!-- Firebase Auth (ES modules from CDN) -->
 <script type="module">
-/* ===== Firebase init ===== */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendPasswordResetEmail
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, sendPasswordResetEmail
+  } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
 
-/* Firebase config (your project) */
-const firebaseConfig = {
-  apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
-  authDomain: "fte-planner.firebaseapp.com",
-  projectId: "fte-planner",
-  storageBucket: "fte-planner.firebasestorage.app",
-  messagingSenderId: "410936425819",
-  appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
-  measurementId: "G-0BZP3LETBE"
-};
+  // Replace with your own config if needed
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+    authDomain: "fte-planner.firebaseapp.com",
+    projectId: "fte-planner",
+    storageBucket: "fte-planner.firebasestorage.app",
+    messagingSenderId: "410936425819",
+    appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+    measurementId: "G-0BZP3LETBE"
+  };
 
-let app, auth;
-try{
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  document.getElementById('authBadge').textContent='Auth: ready';
-  document.getElementById('authBadge').classList.add('ok');
-  document.getElementById('diagAuth').textContent='ok';
-}catch(e){
-  document.getElementById('authBadge').textContent='Auth: failed';
-  document.getElementById('authBadge').classList.add('err');
-  document.getElementById('diagAuth').textContent='failed';
-}
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
 
-/* ===== Owner config with fallback (no external file required) ===== */
-const FALLBACK_OWNER_EMAIL = "phoneemail07@gmail.com";     // <— works immediately
-const FALLBACK_OWNER_CODE  = "SUPER-OWNER-2025";           // <— works immediately
+  const $ = s => document.querySelector(s);
 
-let OWNER_EMAIL = '';
-let OWNER_ACCESS_CODE = '';
+  // Already signed in? Go straight to the app.
+  onAuthStateChanged(auth, (user)=>{
+    if(user) location.href = 'index.html?v=2025-10-09b';
+  });
 
-async function loadConfig(){
-  const badge = document.getElementById('cfgBadge');
-  const diag  = document.getElementById('diagCfg');
-  const paths = ['/config.json','config.json','./config.json'];
-  for(const p of paths){
+  // Sign in
+  $('#btnLogin').onclick = async ()=>{
+    const email = ($('#loginEmail').value||'').trim();
+    const pass = $('#loginPass').value||'';
+    $('#loginErr').textContent = '';
     try{
-      const res = await fetch(p+(p.includes('?')?'':`?ts=${Date.now()}`), {cache:'no-store'});
-      if(!res.ok) continue;
-      const text = await res.text();
-      if(text.trim().startsWith('<')) continue; // SPA redirect guard
-      const cfg = JSON.parse(text);
-      OWNER_EMAIL = String(cfg.ownerEmail||cfg.owner_email||'').trim().toLowerCase();
-      OWNER_ACCESS_CODE = String(cfg.ownerAccessCode||cfg.owner_access_code||'');
-      document.getElementById('ownerEmail').value = OWNER_EMAIL;
-      badge.textContent='Config: loaded'; badge.classList.add('ok'); if(diag) diag.textContent='ok';
-      return;
-    }catch(e){ /* try next path */ }
+      await signInWithEmailAndPassword(auth, email, pass);
+      location.href = 'index.html?v=2025-10-09b';
+    }catch(e){
+      $('#loginErr').textContent = cleanMsg(e.message);
+    }
+  };
+
+  // Create account
+  $('#btnCreate').onclick = async ()=>{
+    const email = ($('#createEmail').value||'').trim();
+    const pass = $('#createPass').value||'';
+    $('#createErr').textContent = '';
+    if(!email || pass.length<8){ $('#createErr').textContent='Enter a valid email and 8+ character password.'; return; }
+    try{
+      await createUserWithEmailAndPassword(auth, email, pass);
+      location.href = 'index.html?v=2025-10-09b';
+    }catch(e){
+      $('#createErr').textContent = cleanMsg(e.message);
+    }
+  };
+
+  // Forgot password
+  $('#btnForgot').onclick = async ()=>{
+    const email = ($('#loginEmail').value||'').trim();
+    if(!email){ $('#loginErr').textContent='Enter your email first.'; return; }
+    try{
+      await sendPasswordResetEmail(auth, email);
+      $('#loginErr').textContent='Reset email sent.'; $('#loginErr').classList.add('ok');
+    }catch(e){
+      $('#loginErr').textContent = cleanMsg(e.message); $('#loginErr').classList.remove('ok');
+    }
+  };
+
+  function cleanMsg(msg){
+    // Make Firebase error messages less noisy for end users
+    return (msg||'').replace(/^Firebase:\s*/,'').replace(/\(auth\/[^\)]+\)\.?$/,'').trim();
   }
-  // Fallback so you can proceed immediately
-  OWNER_EMAIL = FALLBACK_OWNER_EMAIL.toLowerCase();
-  OWNER_ACCESS_CODE = FALLBACK_OWNER_CODE;
-  document.getElementById('ownerEmail').value = OWNER_EMAIL;
-  badge.textContent='Config: fallback (static)'; badge.classList.add('ok'); if(diag) diag.textContent='fallback';
-}
-await loadConfig();
-
-/* ===== Session writer (what index.html expects) ===== */
-const SESSION_KEY='fte-session';
-const setSession=(email)=>{
-  const role = (String(email).trim().toLowerCase()===OWNER_EMAIL)?'superadmin':'user';
-  const exp = Date.now()+1000*60*60*12; // 12h
-  localStorage.setItem(SESSION_KEY, JSON.stringify({email,role,exp}));
-};
-
-/* ===== UI helpers ===== */
-const show=(el,msg)=>{ el.textContent=msg||''; };
-document.getElementById('toggleLoginPass').onclick=()=>{
-  const f=document.getElementById('loginPass'); f.type=(f.type==='password'?'text':'password');
-};
-document.getElementById('toggleCreatePass').onclick=()=>{
-  const f=document.getElementById('createPass'); f.type=(f.type==='password'?'text':'password');
-};
-const roleSel=document.getElementById('createRole');
-const enableOwnerGate=(on)=>{ document.getElementById('ownerCode').disabled=!on; };
-roleSel.addEventListener('change',()=>enableOwnerGate(roleSel.value==='superadmin'));
-enableOwnerGate(roleSel.value==='superadmin');
-
-/* ===== Auth handlers ===== */
-document.getElementById('btnLogin').onclick=async ()=>{
-  const err=document.getElementById('loginErr'); show(err,'');
-  const email=(document.getElementById('loginEmail').value||'').trim();
-  const pass=document.getElementById('loginPass').value||'';
-  if(!email||!pass){ show(err,'Enter your email and password.'); return; }
-  try{
-    await signInWithEmailAndPassword(auth,email,pass);
-    setSession(email); location.href='index.html';
-  }catch(e){ show(err, e?.message || 'Sign-in failed.'); }
-};
-
-document.getElementById('btnReset').onclick=async ()=>{
-  const err=document.getElementById('loginErr'); show(err,'');
-  const email=(document.getElementById('loginEmail').value||'').trim();
-  if(!email){ show(err,'Enter your email above first.'); return; }
-  try{ await sendPasswordResetEmail(auth,email); show(err,'Password reset email sent.'); err.classList.remove('err'); err.classList.add('ok'); }
-  catch(e){ show(err, e?.message || 'Reset failed.'); err.classList.add('err'); }
-};
-
-document.getElementById('btnCreate').onclick=async ()=>{
-  const err=document.getElementById('createErr'); show(err,'');
-  const email=(document.getElementById('createEmail').value||'').trim().toLowerCase();
-  const pass=document.getElementById('createPass').value||'';
-  const role=roleSel.value;
-  if(!email){ show(err,'Enter your email.'); return; }
-  if((pass||'').length<8){ show(err,'Password must be at least 8 characters.'); return; }
-
-  if(role==='superadmin'){
-    const ownerEmailUI=(document.getElementById('ownerEmail').value||'').trim().toLowerCase();
-    const ownerCode=document.getElementById('ownerCode').value||'';
-    if(ownerEmailUI!==OWNER_EMAIL){ show(err,'Owner email does not match.'); return; }
-    if(email!==OWNER_EMAIL){ show(err,'Superadmin email must equal the owner email.'); return; }
-    if(ownerCode!==OWNER_ACCESS_CODE){ show(err,'Owner access code invalid.'); return; }
-  }
-
-  try{
-    await createUserWithEmailAndPassword(auth,email,pass);
-    setSession(email); location.href='index.html';
-  }catch(e){ show(err, e?.message || 'Account creation failed.'); }
-};
-
-/* Enter key submits */
-['loginEmail','loginPass'].forEach(id=>{
-  document.getElementById(id).addEventListener('keypress',e=>{
-    if(e.key==='Enter') document.getElementById('btnLogin').click();
-  });
-});
-['createEmail','createPass','ownerCode'].forEach(id=>{
-  document.getElementById(id).addEventListener('keypress',e=>{
-    if(e.key==='Enter') document.getElementById('btnCreate').click();
-  });
-});
 </script>
-
 </body>
 </html>
