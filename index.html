@@ -6,59 +6,81 @@
 <title>Rolling FTE Planner</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{--bg:#f5f7fb;--panel:#fff;--muted:#64748b;--text:#0f172a;--border:#e5e7eb;--brand:#18b6a0;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--chip:#eef2ff}
+  :root{
+    --bg:#f5f7fb;--panel:#fff;--muted:#64748b;--text:#0f172a;--border:#e5e7eb;
+    --brand:#18b6a0;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--chip:#eef2ff
+  }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),#f3f6fb;color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  header.appbar{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
-  .brand{font-weight:800;letter-spacing:.2px}.chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
+  html,body{height:100%;margin:0;background:
+    radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),
+    #f3f6fb;color:var(--text);
+    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  header.appbar{position:sticky;top:0;z-index:10;background:var(--panel);
+    border-bottom:1px solid var(--border);padding:10px 14px;display:flex;
+    align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+  .brand{font-weight:800;letter-spacing:.2px}
+  .chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
   .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
   .btn.small{padding:6px 8px;font-size:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .muted{color:var(--muted)}.ok{color:var(--ok)}.danger{color:var(--err)}
+  .muted{color:var(--muted)} .ok{color:var(--ok)} .danger{color:var(--err)}
   .wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;min-height:100vh;padding:14px}
-  aside.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;height:calc(100vh - 110px);position:sticky;top:86px;overflow:auto}
+  aside.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;height:calc(100vh - 110px);
+    position:sticky;top:86px;overflow:auto}
   .sec{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
   .sec h3{margin:0 0 8px 0;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#334155}
-  .input{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}.input label{font-size:12px;color:#64748b}
+  .input{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+  .input label{font-size:12px;color:#64748b}
   .input input,.input select{height:38px;border:1px solid var(--border);border-radius:10px;padding:8px;width:100%}
   .hint{font-size:11px;color:#94a3b8}
-  main.content{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;min-height:calc(100vh - 110px)}
+  main.content{background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;min-height:calc(100vh - 110px)}
   .tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
   .tab{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
   .tab.active{background:linear-gradient(180deg,#18b6a0,#12927f);border-color:#108574;color:#fff}
   .month-row{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
-  .month-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-title{font-weight:700}
+  .month-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .m-title{font-weight:700}
   .kpis{display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:12px;margin-top:8px}
-  .k{display:flex;flex-direction:column;gap:4px;min-width:110px}.k label{font-size:11px;color:#6b7280}
+  .k{display:flex;flex-direction:column;gap:4px;min-width:110px}
+  .k label{font-size:11px;color:#6b7280}
   .k input{height:38px;border:1px solid var(--border);border-radius:10px;padding:6px 8px;width:100%}
+  .k input[maxlength]{font-variant-numeric:tabular-nums}
   .k .val{font-weight:700;min-height:38px;display:flex;align-items:center;padding:6px 8px;border:1px dashed #e5e7eb;border-radius:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .month-body{margin-top:10px;display:none}.month-row.open .month-body{display:block}
   .diag-item{border-left:4px solid var(--err);padding:8px;background:#fff;border:1px solid var(--border);border-left-color:var(--err);border-radius:8px;margin-bottom:8px}
   table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
-  th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left} thead th{background:#f8fafc;font-weight:700} tbody tr:last-child td{border-bottom:none}
-  .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}.seg button{border:none;background:#fff;padding:6px 10px;cursor:pointer}.seg button.active{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff}
-  .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+  thead th{background:#f8fafc;font-weight:700}
+  tbody tr:last-child td{border-bottom:none}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:6px 10px;cursor:pointer}
+  .seg button.active{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff}
+  .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
   .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
   .gridwrap table{margin:0;border:none;border-radius:0}
   .gridwrap thead th{position:sticky;top:0;z-index:1}
-  .toolbar{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px}
-  .dense table td,.dense table th{padding:6px 8px}
-  .dense input{height:32px}
-  .sticky-head thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
-  .scrollbox{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff}
-  .pillstat{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
+  /* Sites extras */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:8px}
+  .pillstat{display:inline-flex;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
+  .scrollbox{border:1px solid var(--border);border-radius:12px;background:#fff;overflow:auto;max-height:60vh}
+  .sticky-head thead th{position:sticky;top:0;z-index:2}
   @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
 </style>
 </head>
 <body>
 
-<!-- Auth guard (expects access.html to set localStorage "fte-session") -->
+<!-- Auth guard -->
 <script>
 (function () {
   const KEY='fte-session';
   const u=new URL(location.href);
-  if(u.searchParams.get('reset')==='1'){ try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{} }
+  if(u.searchParams.get('reset')==='1'){
+    try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{}
+  }
   const safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
   if(safe){try{window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null');}catch{} return;}
   let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null');}catch{location.href='access.html';return}
@@ -72,7 +94,7 @@
   <div class="row">
     <div class="brand">Rolling FTE Planner</div>
     <span class="chip" id="horizonChip"></span>
-    <span class="chip">build 2025-10-08G</span>
+    <span class="chip">build 2025-10-08b</span>
   </div>
   <div class="row"><span class="muted" id="userInfo"></span><button class="btn small" id="btnSignOut">Sign out</button></div>
 </header>
@@ -134,7 +156,6 @@
   <main class="content">
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="overview">Outbound</button>
-      <button class="tab" data-tab="outgrid">Outbound Grid</button>
       <button class="tab" data-tab="sites">Sites</button>
       <button class="tab" data-tab="staff">Outbound – Staff</button>
       <button class="tab" data-tab="inbound">Inbound</button>
@@ -148,28 +169,12 @@
     <section id="tab-overview">
       <div class="row" style="margin-bottom:8px">
         <div class="input" style="width:200px"><label>Start month</label><input id="startMonth" type="month"></div>
-        <div class="input" style="width:140px"><label>Months</label><select id="horizon"><option>6</option><option selected>12</option><option>18</option><option>24</option></select></div>
+        <div class="input" style="width:140px"><label>Months</label>
+          <select id="horizon"><option>6</option><option selected>12</option><option>18</option><option>24</option></select>
+        </div>
         <button class="btn small" id="btnRebuild">Apply</button>
       </div>
       <div id="months"></div>
-    </section>
-
-    <!-- Outbound Grid -->
-    <section id="tab-outgrid" style="display:none">
-      <div class="row" style="margin-bottom:8px">
-        <div class="muted">View follows your Start month & Horizon.</div>
-        <button class="btn small" id="btnExportOutGrid" style="margin-left:auto">Export CSV</button>
-      </div>
-      <div class="gridwrap">
-        <table id="outGridTbl">
-          <thead><tr>
-            <th>Month</th><th>Workdays</th><th>Eff hrs/FTE/day</th><th>Net pts</th><th>SL pts</th><th>FTE Need</th>
-            <th>Daily agent-hrs</th><th>W2 4h</th><th>W2 6h</th><th>W2 8h</th><th>W2 10h</th>
-            <th>1099 4h</th><th>1099 6h</th><th>1099 8h</th><th>1099 10h</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
     </section>
 
     <!-- Sites -->
@@ -178,7 +183,9 @@
         <div class="input" style="width:200px"><label>Month</label><input id="sitesMonth" type="month"></div>
         <div class="input" style="width:220px"><label>Search (name)</label><input id="siteSearch" placeholder="type to filter"></div>
         <div class="input" style="width:140px"><label>Page size</label>
-          <select id="sitePageSize"><option>10</option><option selected>20</option><option>35</option><option>70</option><option>100</option></select></div>
+          <select id="sitePageSize"><option>10</option><option selected>20</option><option>35</option><option>70</option><option>100</option></select>
+        </div>
+        <button class="btn small" id="btnSiteAddOne">Add Site</button>
         <div class="input" style="width:140px"><label>Add N rows</label><input id="siteAddN" inputmode="numeric" placeholder="e.g., 10"></div>
         <button class="btn small" id="btnSiteAddN">Add</button>
         <button class="btn small" id="btnCopyPrev">Copy prior month</button>
@@ -189,7 +196,7 @@
       </div>
 
       <div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <span class="pillstat">Sites: <b id="sitesCount">0</b></span>
+        <span class="pillstat">Sites (this month): <b id="sitesCount">0</b> / 70</span>
         <span class="pillstat">Workdays: <b id="sitesWD">0</b></span>
         <span class="pillstat">Eff hrs/FTE/day: <b id="sitesEff">0.00</b></span>
         <span class="pillstat">SL%: <b id="sitesSLpct">0</b></span>
@@ -197,14 +204,24 @@
 
       <div class="scrollbox dense sticky-head">
         <table id="sitesTbl">
-          <thead><tr><th>#</th><th>Site</th><th>Site Volume</th><th>SL Patients</th><th>FTE Need</th><th></th></tr></thead>
+          <thead>
+            <tr><th>#</th><th>Site</th><th>Site Volume</th><th>SL Patients</th><th>FTE Need</th><th></th></tr>
+          </thead>
           <tbody></tbody>
-          <tfoot><tr><th colspan="2">Totals (filtered page)</th><th id="sitesTotalVol">0</th><th id="sitesTotalSL">0</th><th id="sitesTotalFTE">0.0</th><th></th></tr></tfoot>
+          <tfoot>
+            <tr>
+              <th colspan="2">Totals (filtered page)</th>
+              <th id="sitesTotalVol">0</th>
+              <th id="sitesTotalSL">0</th>
+              <th id="sitesTotalFTE">0.0</th>
+              <th></th>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
       <div class="row" style="justify-content:space-between;margin-top:8px">
-        <div class="muted">Tip: CSV to bulk add/update up to 70+ sites quickly.</div>
+        <div class="muted">Tip: CSV to bulk add/update up to 70 sites quickly. Headers: <code>month,site,site_volume</code>.</div>
         <div class="row" style="gap:6px">
           <button class="btn small" id="sitePrev">Prev</button>
           <span class="chip" id="sitePageInfo" data-page="1">Page 1 / 1</span>
@@ -356,20 +373,27 @@ const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
 document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
 document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
 
-/* Month helpers */
+/* Month helpers (timezone-safe) */
 function normalizeYM(s){
-  if(!s) return s;
-  const m1 = /^(\d{4})-(\d{1,2})$/.exec(s);
-  if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
-  const m2 = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
-  if(m2) return `${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`;
+  if(!s)return s;
+  const m1=/^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
+  const m2=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m2) return `${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`;
   return s;
 }
 function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-function ymToDate(ym){const n=normalizeYM(ym); if(!n) return new Date(); const [Y,M]=n.split('-').map(Number); return new Date(Y,(M||1)-1,1);}
+function ymToDate(ym){
+  const n=normalizeYM(ym); if(!n) return new Date();
+  const [Y,M]=n.split('-').map(Number);
+  return new Date(Y, (M||1)-1, 1);
+}
 function dedupAndSortMonths(arr){
   const map=new Map();
-  (arr||[]).forEach(m=>{const ym=normalizeYM(m?.ym||''); if(!ym) return; const d=ymToDate(ym); const prev=map.get(ym)||{}; map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});});
+  (arr||[]).forEach(m=>{
+    const ym=normalizeYM(m?.ym||''); if(!ym) return;
+    const d=ymToDate(ym);
+    const prev=map.get(ym)||{};
+    map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});
+  });
   return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));
 }
 
@@ -383,7 +407,7 @@ function defaultState(){
     holiday:{},
     months,
     inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}},
-    sites:{}  // { 'YYYY-MM': [ {name:'A', vol:0}, ...] }
+    sites:{}  // month -> [{name,vol}]
   };
 }
 function repairState(raw){
@@ -395,9 +419,11 @@ function repairState(raw){
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
   if(!months.length) months=d.months;
   const inbound={...d.inbound,...(raw?.inbound||{})};
-  inbound.monthFTE=inbound.monthFTE||{}; inbound.monthStaffed=inbound.monthStaffed||{};
-  const sites = raw?.sites || {};
-  return{globals:g,holiday:h,months,inbound,sites};
+  inbound.monthFTE=inbound.monthFTE||{};
+  inbound.monthStaffed=inbound.monthStaffed||{};
+  const sites={...d.sites,...(raw?.sites||{})};
+  const normSites={}; Object.keys(sites).forEach(k=>normSites[normalizeYM(k)]=Array.isArray(sites[k])?sites[k]:[]);
+  return{globals:g,holiday:h,months,inbound,sites:normSites};
 }
 function loadState(){try{const raw=JSON.parse(localStorage.getItem(STATE_KEY)||'null');if(!raw)return defaultState();return repairState(raw);}catch{return defaultState();}}
 function saveState(){try{localStorage.setItem(STATE_KEY,JSON.stringify(state));}catch{}}
@@ -431,11 +457,10 @@ function monthCalc(m){
   const fteNeed=denom>0?(slPatients/denom):0;
   const fteAttrPct=(m.fteAttritionPct==null?g.defFteAttr:m.fteAttritionPct)/100;
   const eomFTE=Math.max(0,(m.somFTE||0)-((m.somFTE||0)*fteAttrPct)+(m.newHires||0));
-  return{workdays,hours,attrPatients,netPatients,slPatients,fteNeed,eomFTE,effHr};
+  return{workdays,hours,attrPatients,netPatients,slPatients,fteNeed,eomFTE};
 }
-function schedBreak(fte,hours){const heads=(fte*173.33)/(hours*21.666);return(!isFinite(heads)||heads<=0)?'0.0':heads.toFixed(1);}
 
-/* Effective Supply for staffing (ramp) */
+/* Effective Supply (Outbound – Staff) with ramp */
 function effectiveSupplyForMonth(idx){
   const g=state.globals;
   const m=state.months[idx]; if(!m) return 0;
@@ -454,21 +479,13 @@ function serviceLevel(N,a,AHT,T){ if(N<=0) return 0; if(a===0) return 1; if(a>=N
 function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; const ec=erlangC(N,a); return (ec*AHT)/(N-a); }
 function findAgentsForSL(a,AHT,T,targetSL){ let N=Math.max(1,Math.ceil(a)+1); for(let i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
 
-/* ===== Renderers ===== */
+/* Renderers */
 function renderAll(){
   saveState();
-  renderSidebar();
-  renderOverview();
-  renderOutGrid();
-  renderSites();
-  renderExec();
-  renderStaffing();
-  renderInStaff();
-  renderDiag();
+  renderSidebar(); renderOverview(); renderSites(); renderExec();
+  renderStaffing(); renderInStaff(); renderDiag();
   const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`;
 }
-
-/* Sidebar values */
 function renderSidebar(){
   const g=state.globals;
   setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);
@@ -477,20 +494,19 @@ function renderSidebar(){
   $('#ioSec').style.display=(session.role==='superadmin')?'block':'none';
 }
 
-/* Outbound month cards */
 function renderOverview(){
   state.months=dedupAndSortMonths(state.months);
   const cont=$('#months'); if(!cont) return; cont.innerHTML='';
   const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
   const horizon = Number($('#horizon')?.value||12);
 
-  // Exact span
+  // Build exact view span (timezone-safe)
   const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
 
-  // Auto-carry
+  // Auto-carry toggles (on chronological order)
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
@@ -546,133 +562,7 @@ function renderOverview(){
     cont.appendChild(row);
   });
 }
-
-/* Outbound Grid */
-function renderOutGrid(){
-  const tbody=$('#outGridTbl tbody'); if(!tbody) return; tbody.innerHTML='';
-  const startSel=normalizeYM($('#startMonth')?.value)||ymKey(new Date());
-  const horizon=Number($('#horizon')?.value||12);
-  const span=buildMonths(ymToDate(startSel),horizon).map(x=>x.ym);
-
-  span.forEach(ym=>{
-    const m=state.months.find(x=>normalizeYM(x.ym)===ym) || {ym,name:ymToDate(ym).toLocaleString(undefined,{month:'long',year:'numeric'})};
-    const mc=monthCalc(m);
-    const effPerDay=mc.effHr;
-    const dailyAgentHrs = mc.fteNeed * effPerDay;
-    const w2_4 = (dailyAgentHrs/4).toFixed(1), w2_6=(dailyAgentHrs/6).toFixed(1), w2_8=(dailyAgentHrs/8).toFixed(1), w2_10=(dailyAgentHrs/10).toFixed(1);
-    const c4=w2_4,c6=w2_6,c8=w2_8,c10=w2_10;
-
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${m.name}</td><td>${mc.workdays}</td><td>${effPerDay.toFixed(2)}</td><td>${mc.netPatients.toLocaleString()}</td><td>${mc.slPatients.toLocaleString()}</td><td>${mc.fteNeed.toFixed(1)}</td>
-      <td>${dailyAgentHrs.toFixed(1)}</td><td>${w2_4}</td><td>${w2_6}</td><td>${w2_8}</td><td>${w2_10}</td>
-      <td>${c4}</td><td>${c6}</td><td>${c8}</td><td>${c10}</td>`;
-    tbody.appendChild(tr);
-  });
-}
-$('#btnExportOutGrid').onclick=()=>{
-  const startSel=normalizeYM($('#startMonth')?.value)||ymKey(new Date());
-  const horizon=Number($('#horizon')?.value||12);
-  const span=buildMonths(ymToDate(startSel),horizon).map(x=>x.ym);
-  const rows=[['month','workdays','eff_hrs_per_fte_day','net_pts','sl_pts','fte_need','daily_agent_hours','w2_4h','w2_6h','w2_8h','w2_10h','c1099_4h','c1099_6h','c1099_8h','c1099_10h'].join(',')];
-  span.forEach(ym=>{
-    const m=state.months.find(x=>normalizeYM(x.ym)===ym) || {ym};
-    const name=ymToDate(ym).toLocaleString(undefined,{month:'long',year:'numeric'});
-    const mc=monthCalc(m); const eff=mc.effHr; const dah=mc.fteNeed*eff;
-    const r=[name,mc.workdays,eff.toFixed(2),mc.netPatients,mc.slPatients,mc.fteNeed.toFixed(1),dah.toFixed(1),
-      (dah/4).toFixed(1),(dah/6).toFixed(1),(dah/8).toFixed(1),(dah/10).toFixed(1),(dah/4).toFixed(1),(dah/6).toFixed(1),(dah/8).toFixed(1),(dah/10).toFixed(1)];
-    rows.push(r.join(','));
-  });
-  const blob=new Blob([rows.join('\n')],{type:'text/csv'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='outbound_grid.csv';a.click();
-};
-
-/* Sites */
-function ensureSitesMonth(ym){
-  ym=normalizeYM(ym); if(!ym) return;
-  if(!state.sites[ym]) state.sites[ym]=[];
-}
-function renderSites(){
-  const ym=normalizeYM($('#sitesMonth')?.value)||($('#startMonth')?.value)||ymKey(new Date());
-  ensureMonth(ym); ensureSitesMonth(ym);
-  const g=state.globals;
-  const holidays=new Set((state.holiday[ym]||[]));
-  const wd=getWorkdays(ym,holidays);
-  const effHr=g.hoursPerDay*(1-g.shrink/100);
-  $('#sitesWD').textContent=wd; $('#sitesEff').textContent=effHr.toFixed(2); $('#sitesSLpct').textContent=g.sl.toFixed(0);
-
-  const search=($('#siteSearch')?.value||'').toLowerCase().trim();
-  const pageSize=Number($('#sitePageSize')?.value||20);
-  const arr=state.sites[ym];
-  const filtered = arr.map((r,i)=>({...r,idx:i})).filter(r=>!search||String(r.name||'').toLowerCase().includes(search));
-  $('#sitesCount').textContent=arr.length;
-
-  // paging
-  let page=Number($('#sitePageInfo').getAttribute('data-page')||1);
-  const pages=Math.max(1,Math.ceil(filtered.length/pageSize));
-  if(page>pages) page=pages;
-  const start=(page-1)*pageSize, end=start+pageSize;
-  const view=filtered.slice(start,end);
-
-  const tbody=$('#sitesTbl tbody'); tbody.innerHTML='';
-  let tVol=0,tSL=0,tFTE=0;
-  view.forEach((r,k)=>{
-    const vol=Number(r.vol)||0;
-    const slPts = Math.round(vol*(g.sl/100));
-    const denom = Math.max(0.0001, wd*effHr*g.compPerHr);
-    const fte = denom>0 ? slPts/denom : 0;
-    tVol+=vol; tSL+=slPts; tFTE+=fte;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${start+k+1}</td>
-      <td><input data-sitef="name" data-i="${r.idx}" value="${r.name||''}" style="width:220px"></td>
-      <td><input data-sitef="vol" data-i="${r.idx}" value="${vol}" style="width:120px"></td>
-      <td>${slPts.toLocaleString()}</td>
-      <td>${fte.toFixed(1)}</td>
-      <td><button class="btn small" data-del="${r.idx}">Delete</button></td>`;
-    tbody.appendChild(tr);
-  });
-  $('#sitesTotalVol').textContent=tVol.toLocaleString();
-  $('#sitesTotalSL').textContent=tSL.toLocaleString();
-  $('#sitesTotalFTE').textContent=tFTE.toFixed(1);
-  $('#sitePageInfo').textContent=`Page ${page} / ${pages}`; $('#sitePageInfo').setAttribute('data-page',page);
-
-  // events
-  tbody.querySelectorAll('input[data-sitef]').forEach(inp=>{
-    inp.oninput=()=>{
-      const i=Number(inp.getAttribute('data-i'));
-      const f=inp.getAttribute('data-sitef');
-      if(!state.sites[ym][i]) return;
-      state.sites[ym][i][f] = (f==='vol') ? (parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0) : inp.value;
-      saveState(); renderSites();
-    };
-  });
-  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.onclick=()=>{const i=Number(btn.getAttribute('data-del')); state.sites[ym].splice(i,1); saveState(); renderSites();};
-  });
-}
-$('#sitePrev').onclick=()=>{const pi=$('#sitePageInfo'); const page=Math.max(1,Number(pi.getAttribute('data-page')||1)-1); pi.setAttribute('data-page',page); renderSites();};
-$('#siteNext').onclick=()=>{const pi=$('#sitePageInfo'); const page=Number(pi.getAttribute('data-page')||1)+1; pi.setAttribute('data-page',page); renderSites();};
-$('#btnSiteAddN').onclick=()=>{const ym=normalizeYM($('#sitesMonth').value)||($('#startMonth').value)||ymKey(new Date()); ensureSitesMonth(ym); const n=Math.max(1,parseInt($('#siteAddN').value||'0',10)||0); for(let i=0;i<n;i++){state.sites[ym].push({name:'',vol:0});} saveState(); renderSites();};
-$('#btnCopyPrev').onclick=()=>{const ym=normalizeYM($('#sitesMonth').value)||($('#startMonth').value)||ymKey(new Date()); const d=ymToDate(ym); const prev=ymKey(new Date(d.getFullYear(),d.getMonth()-1,1)); ensureSitesMonth(prev); state.sites[ym]=JSON.parse(JSON.stringify(state.sites[prev]||[])); saveState(); renderSites();};
-$('#sitePageSize').onchange=renderSites; $('#siteSearch').oninput=renderSites; $('#sitesMonth').oninput=renderSites;
-
-$('#btnSitesExport').onclick=()=>{
-  const ym=normalizeYM($('#sitesMonth').value)||($('#startMonth').value)||ymKey(new Date());
-  ensureSitesMonth(ym);
-  const rows=[['month','site','site_volume'].join(',')];
-  (state.sites[ym]||[]).forEach(r=>rows.push([ym,r.name||'',Number(r.vol)||0].join(',')));
-  const blob=new Blob([rows.join('\n')],{type:'text/csv'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`sites_${ym}.csv`;a.click();
-};
-$('#siteCsv').addEventListener('change',()=>{
-  const f=$('#siteCsv').files[0]; if(!f){alert('Choose a CSV');return;}
-  const r=new FileReader(); r.onload=()=>{ try{
-    const lines=(r.result||'').split(/\r?\n/).filter(x=>x.trim());
-    const hdr=lines.shift().split(',').map(h=>h.trim().toLowerCase());
-    const idx=Object.fromEntries(hdr.map((h,i)=>[h,i]));
-    if(idx['month']==null||idx['site']==null||idx['site_volume']==null){alert('CSV must include month,site,site_volume');return;}
-    const map={}; lines.forEach(line=>{const c=line.split(','); const m=(c[idx['month']]||'').trim(); if(!/^\d{4}-\d{2}$/.test(m)) return; if(!map[m]) map[m]=[]; map[m].push({name:c[idx['site']]||'',vol:+c[idx['site_volume']]||0});});
-    Object.keys(map).forEach(m=>{state.sites[m]=map[m];});
-    saveState(); renderSites(); alert('Sites imported.');
-  }catch(e){alert('Import failed: '+e.message);}}; r.readAsText(f);
-});
+function schedBreak(fte,hours){const heads=(fte*173.33)/(hours*21.666);return(!isFinite(heads)||heads<=0)?'0.0':heads.toFixed(1);}
 
 /* Exec */
 let netChart,fteChart;
@@ -736,6 +626,190 @@ function renderStaffing(){
     tbody.appendChild(tr);
   });
 }
+
+/* ===== Sites (up to 70 per month, manual-friendly) ===== */
+const SITES_CAP = 70;
+function ensureSitesMonth(ym){
+  ym = normalizeYM(ym);
+  if(!ym) return;
+  if(!state.sites) state.sites = {};
+  if(!state.sites[ym]) state.sites[ym] = [];
+}
+function sitesLimitGuard(ym, toAdd){
+  ensureSitesMonth(ym);
+  const curr = state.sites[ym].length;
+  if(curr >= SITES_CAP){ alert(`You already have ${curr} sites. Max is ${SITES_CAP}.`); return 0; }
+  const allowed = Math.min(toAdd, SITES_CAP - curr);
+  if(allowed < toAdd){ alert(`Adding only ${allowed} (cap ${SITES_CAP}).`); }
+  return allowed;
+}
+function renderSites(){
+  const ym = normalizeYM($('#sitesMonth')?.value) || ($('#startMonth')?.value) || ymKey(new Date());
+  ensureMonth(ym); ensureSitesMonth(ym);
+
+  const g=state.globals;
+  const holidays=new Set((state.holiday[ym]||[]));
+  const wd=getWorkdays(ym,holidays);
+  const effHr=g.hoursPerDay*(1 - g.shrink/100);
+
+  $('#sitesWD').textContent = wd;
+  $('#sitesEff').textContent = effHr.toFixed(2);
+  $('#sitesSLpct').textContent = g.sl.toFixed(0);
+
+  const search = ($('#siteSearch')?.value||'').toLowerCase().trim();
+  const pageSize = Number($('#sitePageSize')?.value||20);
+  const arr = state.sites[ym];
+
+  // filter & annotate
+  const filtered = arr.map((r,i)=>({...r, idx:i})).filter(r=>!search || String(r.name||'').toLowerCase().includes(search));
+  $('#sitesCount').textContent = arr.length;
+
+  // paging
+  let page = Number($('#sitePageInfo').getAttribute('data-page')||1);
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if(page > pages) page = pages;
+  const start = (page-1)*pageSize, end = start + pageSize;
+  const view = filtered.slice(start,end);
+
+  const tbody = $('#sitesTbl tbody'); tbody.innerHTML = '';
+  let tVol=0, tSL=0, tFTE=0;
+
+  view.forEach((r,k)=>{
+    const vol = Number(r.vol)||0;
+    const slPts = Math.round(vol*(g.sl/100));
+    const denom = Math.max(0.0001, wd*effHr*g.compPerHr);
+    const fte = denom>0 ? slPts/denom : 0;
+
+    tVol += vol; tSL += slPts; tFTE += fte;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${start+k+1}</td>
+      <td><input data-sitef="name" data-i="${r.idx}" value="${r.name||''}" style="width:220px"></td>
+      <td><input data-sitef="vol" data-i="${r.idx}" value="${vol}" style="width:120px"></td>
+      <td>${slPts.toLocaleString()}</td>
+      <td>${fte.toFixed(1)}</td>
+      <td><button class="btn small" data-del="${r.idx}">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  $('#sitesTotalVol').textContent = tVol.toLocaleString();
+  $('#sitesTotalSL').textContent = tSL.toLocaleString();
+  $('#sitesTotalFTE').textContent = tFTE.toFixed(1);
+
+  $('#sitePageInfo').textContent = `Page ${page} / ${pages}`;
+  $('#sitePageInfo').setAttribute('data-page', page);
+
+  // events (edit/delete)
+  tbody.querySelectorAll('input[data-sitef]').forEach(inp=>{
+    inp.oninput = ()=>{
+      const i = Number(inp.getAttribute('data-i'));
+      const f = inp.getAttribute('data-sitef');
+      if(!state.sites[ym][i]) return;
+      state.sites[ym][i][f] = (f==='vol') ? (parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0) : inp.value;
+      saveState(); renderSites();
+    };
+  });
+  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = Number(btn.getAttribute('data-del'));
+      state.sites[ym].splice(i,1);
+      saveState(); renderSites();
+    };
+  });
+}
+// paging
+$('#sitePrev').onclick = ()=>{
+  const pi = $('#sitePageInfo');
+  const page = Math.max(1, Number(pi.getAttribute('data-page')||1) - 1);
+  pi.setAttribute('data-page', page);
+  renderSites();
+};
+$('#siteNext').onclick = ()=>{
+  const pi = $('#sitePageInfo');
+  const page = Number(pi.getAttribute('data-page')||1) + 1;
+  pi.setAttribute('data-page', page);
+  renderSites();
+};
+// add single site
+$('#btnSiteAddOne').onclick = ()=>{
+  const ym = normalizeYM($('#sitesMonth').value) || ($('#startMonth').value) || ymKey(new Date());
+  const allow = sitesLimitGuard(ym, 1);
+  if(allow<=0) return;
+  state.sites[ym].push({name:'', vol:0});
+  saveState(); renderSites();
+};
+// add N rows (cap 70)
+$('#btnSiteAddN').onclick = ()=>{
+  const ym = normalizeYM($('#sitesMonth').value) || ($('#startMonth').value) || ymKey(new Date());
+  const n = Math.max(1, parseInt($('#siteAddN').value||'0',10)||0);
+  const allow = sitesLimitGuard(ym, n);
+  if(allow<=0) return;
+  for(let i=0;i<allow;i++){ state.sites[ym].push({name:'', vol:0}); }
+  saveState(); renderSites();
+};
+// copy prior month (respects cap)
+$('#btnCopyPrev').onclick = ()=>{
+  const ym = normalizeYM($('#sitesMonth').value) || ($('#startMonth').value) || ymKey(new Date());
+  const d = ymToDate(ym);
+  const prev = ymKey(new Date(d.getFullYear(), d.getMonth()-1, 1));
+  ensureSitesMonth(prev); ensureSitesMonth(ym);
+  const src = state.sites[prev]||[];
+  const allow = sitesLimitGuard(ym, src.length);
+  if(allow<=0) return;
+  const addition = JSON.parse(JSON.stringify(src.slice(0, allow)));
+  state.sites[ym] = (state.sites[ym]||[]).concat(addition);
+  saveState(); renderSites();
+};
+// live controls
+$('#sitePageSize').onchange = renderSites;
+$('#siteSearch').oninput = renderSites;
+$('#sitesMonth').oninput = renderSites;
+// CSV export
+$('#btnSitesExport').onclick = ()=>{
+  const ym = normalizeYM($('#sitesMonth').value) || ($('#startMonth').value) || ymKey(new Date());
+  ensureSitesMonth(ym);
+  const rows = [['month','site','site_volume'].join(',')];
+  (state.sites[ym]||[]).forEach(r=>rows.push([ym, r.name||'', Number(r.vol)||0].join(',')));
+  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`sites_${ym}.csv`;a.click();
+};
+// CSV import (cap 70)
+$('#siteCsv').addEventListener('change',()=>{
+  const f=$('#siteCsv').files[0]; if(!f){alert('Choose a CSV');return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const text = r.result||'';
+      const lines = text.split(/\r?\n/).filter(x=>x.trim());
+      if(!lines.length) { alert('Empty CSV'); return; }
+      const hdr = lines.shift().split(',').map(h=>h.trim().toLowerCase());
+      const idx = Object.fromEntries(hdr.map((h,i)=>[h,i]));
+      if(idx['month']==null || idx['site']==null || idx['site_volume']==null){
+        alert('CSV must include: month, site, site_volume'); return;
+      }
+      const grouped = {};
+      lines.forEach(line=>{
+        const c=line.split(',');
+        const m=(c[idx['month']]||'').trim();
+        if(!/^\d{4}-\d{2}$/.test(m)) return;
+        if(!grouped[m]) grouped[m]=[];
+        grouped[m].push({name:c[idx['site']]||'', vol:+c[idx['site_volume']]||0});
+      });
+      Object.keys(grouped).forEach(m=>{
+        ensureSitesMonth(m);
+        const allow = Math.min(SITES_CAP, grouped[m].length);
+        if(grouped[m].length>allow){
+          alert(`Month ${m}: importing first ${allow} rows (cap ${SITES_CAP}).`);
+        }
+        state.sites[m] = grouped[m].slice(0, allow);
+      });
+      saveState(); renderSites(); alert('Sites imported.');
+    }catch(e){ alert('Import failed: '+e.message); }
+  };
+  r.readAsText(f);
+});
 
 /* Inbound interval grid + CSV import/export */
 function ensureInboundGrid(){
@@ -929,12 +1003,13 @@ function diagItem(msg,fix){const d=document.createElement('div');d.className='di
 document.getElementById('tabs').addEventListener('click',e=>{
   const t=e.target.closest('.tab'); if(!t) return;
   $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-  ['overview','outgrid','sites','staff','inbound','instaff','exec','diag'].forEach(id=>$('#tab-'+id).style.display='none');
+  ['overview','sites','staff','inbound','instaff','exec','diag'].forEach(id=>$('#tab-'+id).style.display='none');
   $('#tab-'+t.getAttribute('data-tab')).style.display='block';
 });
 
 /* Global actions */
 $('#btnToggleGlobal').onclick=()=>{const el=$('#globalBody');const b=$('#btnToggleGlobal');const isOpen=el.style.display!=='none';el.style.display=isOpen?'none':'block';b.textContent=isOpen?'Expand':'Collapse';};
+
 $('#btnExportSummary').onclick=()=>{
   const mode=$('#exportMode').value;const lines=[];
   const start=$('#startMonth')?.value||ymKey(new Date());
@@ -994,7 +1069,7 @@ $('#btnImportCsv').onclick=()=>{
       const headers=lines.shift().split(',').map(h=>h.trim().toLowerCase());
       const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
       const required=['month(yyyy-mm)','som_patients','enrollments','attrition_pct','practice_loss','som_fte','new_hires'];
-      if(!required.every(h=>idx[h]!=null)){alert('Missing required headers.');return;}
+      if(!required.every(h=>idx[h]!=null)){alert('Missing required headers. Check README.');return;}
       lines.forEach(line=>{
         const cols=line.split(',');
         const ym=(cols[idx['month(yyyy-mm)']]||'').trim();
