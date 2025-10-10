@@ -6,9 +6,7 @@
 <title>Rolling FTE Planner · Access</title>
 <meta name="color-scheme" content="light">
 <style>
-  :root{
-    --bg:#f6f8fc; --panel:#fff; --border:#e5e7eb; --muted:#64748b; --brand:#18b6a0; --brand2:#12927f; --err:#dc2626;
-  }
+  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--brand:#18b6a0;--brand2:#12927f;--err:#dc2626}
   html,body{margin:0;background:var(--bg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
   .wrap{max-width:960px;margin:40px auto;padding:0 14px}
   header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
@@ -23,7 +21,6 @@
   button{cursor:pointer;background:linear-gradient(180deg,var(--brand),var(--brand2));border:none;color:white}
   .btn-ghost{background:#fff;border:1px solid var(--border);color:#111}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .muted{color:var(--muted)}
   .err{color:var(--err);min-height:18px;margin-top:6px}
   .hidden{display:none}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
@@ -39,35 +36,33 @@
   <div class="grid">
     <!-- Sign in -->
     <div class="card">
-      <h3 style="margin-top:0">Sign in</h3>
-      <div class="input"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
-      <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password"></div>
-      <div class="row">
-        <button id="btnLogin">Sign in</button>
-        <button id="btnSendVerify" class="btn-ghost" title="Send verification email to the address above (optional)">Send verify email</button>
-      </div>
-      <div id="loginErr" class="err"></div>
+      <form id="loginForm" novalidate>
+        <div class="input"><label>Email</label><input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username" required></div>
+        <div class="input"><label>Password</label><input id="loginPass" type="password" placeholder="********" autocomplete="current-password" required></div>
+        <div class="row">
+          <button type="submit">Sign in</button>
+          <button type="button" id="btnSendVerify" class="btn-ghost" title="Optional">Send verify email</button>
+        </div>
+        <div id="loginErr" class="err"></div>
+      </form>
     </div>
 
     <!-- Create account -->
     <div class="card">
-      <h3 style="margin-top:0">Create account</h3>
-      <div class="input"><label>Email</label><input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username"></div>
-      <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password"></div>
-      <div class="row">
-        <button id="btnCreate">Create account</button>
-      </div>
-      <div class="muted" style="margin-top:8px">
-        Superadmin is assigned automatically if the email equals the owner email in <code>config.json</code>.
-      </div>
-      <div id="createErr" class="err"></div>
+      <form id="createForm" novalidate>
+        <div class="input"><label>Email</label><input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username" required></div>
+        <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" placeholder="********" autocomplete="new-password" required></div>
+        <div class="row">
+          <button type="submit">Create account</button>
+        </div>
+        <div id="createErr" class="err"></div>
+      </form>
     </div>
   </div>
 </div>
 
 <!-- Firebase + App code -->
 <script type="module">
-/* ---------------- Firebase SDK (v10) ---------------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import {
   getAuth, setPersistence, browserLocalPersistence,
@@ -75,118 +70,122 @@ import {
   onAuthStateChanged, sendEmailVerification, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
-/* --------- 1) Your Firebase project config (from Console) --------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
-  authDomain: "fte-planner.firebaseapp.com",
-  projectId: "fte-planner",
-  storageBucket: "fte-planner.firebasestorage.app",
-  messagingSenderId: "410936425819",
-  appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
-  measurementId: "G-0BZP3LETBE"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-await setPersistence(auth, browserLocalPersistence);
-
-/* --------- 2) Owner config (public, non-secret) --------- */
-let OWNER_EMAIL = "";  // who becomes superadmin
-async function loadOwnerConfig(){
+(function init(){
+  const state = {
+    ownerEmail: ""
+  };
   const chip = document.getElementById('statusChip');
+  const loginErr = document.getElementById('loginErr');
+  const createErr = document.getElementById('createErr');
+  const showErr = (el,msg)=>{ el.textContent = msg||''; };
+
+  // 1) Firebase init (no top-level await)
+  let auth = null;
   try{
-    const res = await fetch('config.json?ts=' + Date.now(), {cache:'no-store'});
-    if(!res.ok) throw new Error('missing');
-    const cfg = await res.json();
-    OWNER_EMAIL = String(cfg.ownerEmail || cfg.owner_email || '').trim().toLowerCase();
-    chip.textContent = 'Access ready';
+    const firebaseConfig = {
+      apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+      authDomain: "fte-planner.firebaseapp.com",
+      projectId: "fte-planner",
+      storageBucket: "fte-planner.firebasestorage.app",
+      messagingSenderId: "410936425819",
+      appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+      measurementId: "G-0BZP3LETBE"
+    };
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    setPersistence(auth, browserLocalPersistence).catch(()=>{});
   }catch(e){
-    chip.textContent = 'Access ready (no owner set)';
+    chip.textContent = 'Init error';
+    console.error('Firebase init failed', e);
+    return;
   }
-}
-await loadOwnerConfig();
 
-/* --------- 3) Small helpers --------- */
-function roleFor(email){
-  email = (email||'').toLowerCase().trim();
-  return (OWNER_EMAIL && email===OWNER_EMAIL) ? 'superadmin' : 'user';
-}
-function setSession(email){
-  const role = roleFor(email);
-  const exp = Date.now() + 1000*60*60*12; // 12 hours
-  localStorage.setItem('fte-session', JSON.stringify({email, role, exp}));
-}
-function clearSession(){
-  try{ localStorage.removeItem('fte-session'); }catch{}
-}
-function showErr(id,msg){ const el=document.getElementById(id); if(el) el.textContent = msg||''; }
+  // 2) Load owner config (no-block if missing)
+  fetch('config.json?ts=' + Date.now(), {cache:'no-store'})
+    .then(r=>r.ok?r.json():null)
+    .then(cfg=>{
+      state.ownerEmail = (cfg?.ownerEmail || cfg?.owner_email || '').trim().toLowerCase();
+      chip.textContent = 'Ready';
+    })
+    .catch(()=>{ chip.textContent = 'Ready'; });
 
-/* --------- 4) If already signed in, fast-pass to app --------- */
-onAuthStateChanged(auth, (user)=>{
-  if(user && user.email){
-    // Optional: require email verification for superadmin only
-    if(roleFor(user.email)==='superadmin' && !user.emailVerified){
-      showErr('loginErr','Please verify your email (check your inbox) before entering as Superadmin.');
-      return;
-    }
-    setSession(user.email);
-    location.href='index.html';
-  }else{
-    clearSession();
+  // Helpers
+  function roleFor(email){
+    email = (email||'').toLowerCase().trim();
+    return (state.ownerEmail && email===state.ownerEmail) ? 'superadmin' : 'user';
   }
-});
-
-/* --------- 5) UI events --------- */
-document.getElementById('btnLogin').onclick = async ()=>{
-  showErr('loginErr','');
-  const email = (document.getElementById('loginEmail').value||'').trim();
-  const pass  = document.getElementById('loginPass').value||'';
-  if(!email || !pass){ showErr('loginErr','Enter your email and password.'); return; }
-  try{
-    await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will redirect
-  }catch(e){
-    showErr('loginErr', e.message.replace('Firebase: ', ''));
+  function setSession(email){
+    const role = roleFor(email);
+    const exp = Date.now() + 1000*60*60*12;
+    localStorage.setItem('fte-session', JSON.stringify({email, role, exp}));
   }
-};
+  function clearSession(){ try{ localStorage.removeItem('fte-session'); }catch{} }
 
-document.getElementById('btnSendVerify').onclick = async ()=>{
-  showErr('loginErr','');
-  const email = (document.getElementById('loginEmail').value||'').trim();
-  const pass  = document.getElementById('loginPass').value||'';
-  if(!email){ showErr('loginErr','Enter your email above, then press this again after signing in at least once.'); return; }
-  try{
-    // quick sign-in if possible (helps first-time verify)
-    if(!auth.currentUser && pass){
-      await signInWithEmailAndPassword(auth, email, pass);
-    }
-    if(auth.currentUser){
-      await sendEmailVerification(auth.currentUser);
-      showErr('loginErr','Verification email sent.');
-      await signOut(auth);
-      clearSession();
+  // 3) Auth state → redirect
+  onAuthStateChanged(auth, (user)=>{
+    if(user && user.email){
+      if(roleFor(user.email)==='superadmin' && !user.emailVerified){
+        showErr(loginErr,'Please verify your email before entering as Superadmin.');
+        return;
+      }
+      setSession(user.email);
+      location.href='index.html';
     }else{
-      showErr('loginErr','Sign in first to send verification.');
+      clearSession();
     }
-  }catch(e){ showErr('loginErr', e.message.replace('Firebase: ','')); }
-};
+  });
 
-document.getElementById('btnCreate').onclick = async ()=>{
-  showErr('createErr','');
-  const email=(document.getElementById('createEmail').value||'').trim();
-  const pass = document.getElementById('createPass').value||'';
-  if(!email){ showErr('createErr','Enter your email.'); return; }
-  if((pass||'').length<8){ showErr('createErr','Password must be at least 8 characters.'); return; }
-  try{
-    await createUserWithEmailAndPassword(auth, email, pass);
-    // Optional: auto-send verify for all accounts (kept minimal for UX)
-    if(roleFor(email)==='superadmin'){
-      await sendEmailVerification(auth.currentUser);
+  // 4) Sign in (form submit)
+  document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    showErr(loginErr,'');
+    const email = (document.getElementById('loginEmail').value||'').trim();
+    const pass  = document.getElementById('loginPass').value||'';
+    if(!email || !pass){ showErr(loginErr,'Enter your email and password.'); return; }
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+    }catch(err){
+      showErr(loginErr, (err?.message||'Sign-in failed').replace('Firebase: ', ''));
     }
-    // onAuthStateChanged will redirect
-  }catch(e){
-    showErr('createErr', e.message.replace('Firebase: ', ''));
-  }
-};
+  });
+
+  // 5) Verify email (optional)
+  document.getElementById('btnSendVerify').addEventListener('click', async ()=>{
+    showErr(loginErr,'');
+    const email = (document.getElementById('loginEmail').value||'').trim();
+    const pass  = document.getElementById('loginPass').value||'';
+    try{
+      if(!auth.currentUser && email && pass){
+        await signInWithEmailAndPassword(auth, email, pass);
+      }
+      if(auth.currentUser){
+        await sendEmailVerification(auth.currentUser);
+        showErr(loginErr,'Verification email sent.');
+        await signOut(auth);
+        clearSession();
+      }else{
+        showErr(loginErr,'Sign in first to send verification.');
+      }
+    }catch(err){ showErr(loginErr,(err?.message||'Error').replace('Firebase: ','')); }
+  });
+
+  // 6) Create account (form submit)
+  document.getElementById('createForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    showErr(createErr,'');
+    const email=(document.getElementById('createEmail').value||'').trim();
+    const pass = document.getElementById('createPass').value||'';
+    if(!email){ showErr(createErr,'Enter your email.'); return; }
+    if((pass||'').length<8){ showErr(createErr,'Password must be at least 8 characters.'); return; }
+    try{
+      await createUserWithEmailAndPassword(auth, email, pass);
+      if(roleFor(email)==='superadmin'){ try{ await sendEmailVerification(auth.currentUser); }catch{} }
+      // onAuthStateChanged will redirect
+    }catch(err){
+      showErr(createErr, (err?.message||'Create failed').replace('Firebase: ', ''));
+    }
+  });
+})();
 </script>
 </body>
 </html>
