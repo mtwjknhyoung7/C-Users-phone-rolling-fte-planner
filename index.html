@@ -43,22 +43,45 @@
   .gridwrap table{margin:0;border:none;border-radius:0}
   .gridwrap thead th{position:sticky;top:0;z-index:1}
   @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
+  /* boot badge (you can remove later) */
+  #boot{position:fixed;top:8px;left:8px;background:#111;color:#fff;padding:6px 8px;z-index:99999;font:12px monospace;opacity:.9;border-radius:6px}
 </style>
 </head>
 <body>
 
-<!-- Auth guard -->
+<!-- Boot banner (for quick confirmation that JS runs) -->
+<div id="boot">boot…</div>
+<script>
+(function(){
+  var b=document.getElementById('boot');
+  try{
+    b.textContent='boot: JS running';
+    window.addEventListener('load', function(){ b.textContent='boot: window load ✓'; }, {once:true});
+  }catch(e){ b.textContent='boot: error '+e; }
+})();
+</script>
+
+<!-- Auth guard (final, with safe bypass) -->
 <script>
 (function () {
-  const KEY='fte-session';
-  const u=new URL(location.href);
-  if(u.searchParams.get('reset')==='1'){ try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{} }
-  const safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
-  if(safe){try{window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null');}catch{} return;}
-  let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null');}catch{location.href='access.html';return}
-  if(!s||!s.email||!s.role){location.href='access.html';return}
-  if(s.exp && Date.now()>=Number(s.exp)){localStorage.removeItem(KEY);location.href='access.html';return}
-  window.__FTE_SESSION__=s;
+  const KEY = 'fte-session';
+  const u = new URL(location.href);
+  const safe = (u.hash === '#safe') || (u.searchParams.get('safe') === '1');
+
+  if (u.searchParams.get('reset') === '1') {
+    try { localStorage.removeItem('fte-state-v2'); localStorage.removeItem(KEY); } catch {}
+  }
+
+  if (safe) {
+    try { window.__FTE_SESSION__ = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch {}
+    return; // allow page JS to run without redirect
+  }
+
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch {}
+  if (!s || !s.email || !s.role) { location.replace('access.html'); return; }
+  if (s.exp && Date.now() >= Number(s.exp)) { try { localStorage.removeItem(KEY); } catch {} location.replace('access.html'); return; }
+  window.__FTE_SESSION__ = s;
 })();
 </script>
 
@@ -323,7 +346,7 @@ function defaultState(){
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
-  // drop legacy defAttr if present
+  // legacy defAttr dropped
   delete g.defAttr;
   if(g.defFteAttr==null) g.defFteAttr=3.5;
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
@@ -630,7 +653,7 @@ function erlangRunAndStore(){
   });
   avgAgents = rows.length ? avgAgents/rows.length : 0;
 
-  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date()));
+  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date());
   const holidays = new Set((state.holiday[ym]||[]));
   const wd = getWorkdays(ym, holidays);
   const effHoursPerFTE = state.globals.hoursPerDay * (1 - (state.globals.shrink/100));
@@ -832,6 +855,7 @@ function init(){
 }
 init();
 </script>
+
 <!-- Inline error panel (for quick debugging) -->
 <div id="errbox" style="position:fixed;left:8px;bottom:8px;right:8px;max-height:40vh;overflow:auto;background:#111;color:#fff;padding:8px;border-radius:8px;font:12px/1.4 monospace;display:none;z-index:99999"></div>
 <script>
@@ -844,14 +868,11 @@ init();
     p.textContent = '['+new Date().toISOString()+'] ' + msg;
     b.appendChild(p);
   }
-  // If the main script runs, we’ll replace this after load
   window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
-  // JS errors
   window.onerror = function(msg, src, lin, col, err){
     show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:''));
     return false;
   };
-  // Promise rejections
   window.addEventListener('unhandledrejection', function(e){
     var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
   });
@@ -860,4 +881,3 @@ init();
 
 </body>
 </html>
-
