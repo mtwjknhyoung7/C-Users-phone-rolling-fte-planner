@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Sign in · Rolling FTE Planner</title>
 <style>
-  :root{
-    --bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--ink:#0f172a;--brand:#18b6a0;--brand2:#12927f;--err:#dc2626
-  }
+  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--ink:#0f172a;--brand:#18b6a0;--brand2:#12927f;--err:#dc2626}
   html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
   .wrap{max-width:880px;margin:40px auto;padding:0 16px}
   header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
@@ -26,8 +24,6 @@
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .muted{color:var(--muted)}
   .err{color:var(--err);min-height:18px}
-  .ok{color:#16a34a}
-  .foot{margin-top:12px;display:flex;justify-content:space-between;align-items:center}
   .hidden{display:none}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
@@ -36,7 +32,7 @@
 <div class="wrap">
   <header>
     <div class="brand">Rolling FTE Planner</div>
-    <span id="build" class="badge">access build 2025-10-10a</span>
+    <span class="badge">access build 2025-10-10c</span>
   </header>
 
   <div class="grid">
@@ -75,18 +71,18 @@
     </div>
   </div>
 
-  <div class="foot">
+  <div class="row" style="margin-top:12px;justify-content:space-between">
     <span id="status" class="muted"></span>
-    <button id="btnToApp" class="btn hidden">Go to app</button>
+    <div class="row">
+      <button id="btnToApp" class="btn hidden">Go to app</button>
+      <button id="btnReset" class="btn">Reset session</button>
+    </div>
   </div>
 </div>
 
-<!-- Firebase v10 CDN (modules) -->
 <script type="module">
-  /************* EDIT ONLY IF YOU CHANGE OWNER EMAIL *************/
-  const OWNER_EMAIL = "phoneemail07@gmail.com";   // <- you are the only Superadmin
+  const OWNER_EMAIL = "phoneemail07@gmail.com";
 
-  // --- Your Firebase config (from your console) ---
   const firebaseConfig = {
     apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
     authDomain: "fte-planner.firebaseapp.com",
@@ -97,15 +93,13 @@
     measurementId: "G-0BZP3LETBE"
   };
 
-  // --- Load Firebase modules from CDN ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getAuth, onAuthStateChanged,
     signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    setPersistence, browserLocalPersistence
+    setPersistence, browserLocalPersistence, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // Helpers
   const $ = s => document.querySelector(s);
   const STATUS = $('#status');
   function setSession(email, role){
@@ -114,12 +108,11 @@
   }
   function toIndex(){ location.href = 'index.html'; }
 
-  // Init
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   await setPersistence(auth, browserLocalPersistence);
 
-  // Optional reset hook
+  // Optional quick reset
   (function(){
     const u = new URL(location.href);
     if (u.searchParams.get('reset') === '1') {
@@ -127,7 +120,13 @@
     }
   })();
 
-  // UI handlers
+  // Buttons
+  $('#btnReset').onclick = async () => {
+    try { await signOut(auth); } catch {}
+    try { localStorage.removeItem('fte-session'); } catch {}
+    STATUS.textContent = 'Session cleared.';
+  };
+
   $('#btnLogin').onclick = async () => {
     $('#loginErr').textContent = '';
     STATUS.textContent = 'Signing in…';
@@ -163,13 +162,14 @@
     }
   };
 
-  // Auto-send to app if still valid
+  // IMPORTANT: do NOT auto-redirect here. Only expose the button.
   onAuthStateChanged(auth, (user) => {
-    if(!user) return;
+    if(!user) { STATUS.textContent = 'Firebase Auth: ready'; return; }
     const role = (user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
     setSession(user.email||'', role);
     $('#btnToApp').classList.remove('hidden');
     $('#btnToApp').onclick = toIndex;
+    STATUS.textContent = 'Signed in. Click "Go to app".';
   });
 
   function mapAuthError(e){
@@ -182,38 +182,6 @@
     if(c.includes('auth/network-request-failed')) return 'Network error. Try again.';
     return 'Error: ' + (e?.message || 'Unknown error');
   }
-
-  // Status line
-  try{
-    STATUS.textContent = 'Firebase Auth: ready';
-  }catch{ STATUS.textContent = 'Firebase not initialized'; }
 </script>
-<!-- Inline error panel (for quick debugging) -->
-<div id="errbox" style="position:fixed;left:8px;bottom:8px;right:8px;max-height:40vh;overflow:auto;background:#111;color:#fff;padding:8px;border-radius:8px;font:12px/1.4 monospace;display:none;z-index:99999"></div>
-<script>
-(function(){
-  function show(msg){
-    var b=document.getElementById('errbox');
-    if (!b) return;
-    b.style.display='block';
-    var p=document.createElement('div');
-    p.textContent = '['+new Date().toISOString()+'] ' + msg;
-    b.appendChild(p);
-  }
-  // If the main script runs, we’ll replace this after load
-  window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
-  // JS errors
-  window.onerror = function(msg, src, lin, col, err){
-    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:''));
-    return false;
-  };
-  // Promise rejections
-  window.addEventListener('unhandledrejection', function(e){
-    var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
-  });
-})();
-</script>
-
 </body>
 </html>
-
