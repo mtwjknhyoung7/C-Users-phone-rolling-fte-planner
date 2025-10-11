@@ -832,5 +832,32 @@ function init(){
 }
 init();
 </script>
+<!-- Inline error panel (for quick debugging) -->
+<div id="errbox" style="position:fixed;left:8px;bottom:8px;right:8px;max-height:40vh;overflow:auto;background:#111;color:#fff;padding:8px;border-radius:8px;font:12px/1.4 monospace;display:none;z-index:99999"></div>
+<script>
+(function(){
+  function show(msg){
+    var b=document.getElementById('errbox');
+    if (!b) return;
+    b.style.display='block';
+    var p=document.createElement('div');
+    p.textContent = '['+new Date().toISOString()+'] ' + msg;
+    b.appendChild(p);
+  }
+  // If the main script runs, we’ll replace this after load
+  window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
+  // JS errors
+  window.onerror = function(msg, src, lin, col, err){
+    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:''));
+    return false;
+  };
+  // Promise rejections
+  window.addEventListener('unhandledrejection', function(e){
+    var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
+  });
+})();
+</script>
+
 </body>
 </html>
+
