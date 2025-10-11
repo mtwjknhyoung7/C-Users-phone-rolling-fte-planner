@@ -4,7 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Rolling FTE Planner</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{--bg:#f5f7fb;--panel:#fff;--muted:#64748b;--text:#0f172a;--border:#e5e7eb;--brand:#18b6a0;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--chip:#eef2ff}
   *{box-sizing:border-box}
@@ -40,47 +42,62 @@
   .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
   .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
+  .gridwrap table{margin:0;border:none;border-radius:0}
   .gridwrap thead th{position:sticky;top:0;z-index:1}
   @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
-  /* Debug strip */
-  #errbox{position:fixed;left:0;right:0;bottom:0;background:#111;color:#fff;padding:6px 10px;font:12px/1.4 monospace;z-index:99999;max-height:44vh;overflow:auto}
+  /* Auth overlay */
+  .auth-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.08);backdrop-filter:blur(2px);z-index:99}
+  .auth-card{width:min(560px,92vw);background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 6px 22px rgba(2,6,23,.08)}
+  .auth-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .auth-card .input{margin:6px 0}
+  .auth-badge{font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#fff}
+  @media (max-width:720px){.auth-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<!-- Auth guard (bypassed when URL has #safe) -->
-<script>
-(function () {
-  try{
-    var KEY='fte-session';
-    var u=new URL(location.href);
-    if(u.searchParams.get('reset')==='1'){
-      try{ localStorage.removeItem('fte-state-v2'); localStorage.removeItem(KEY);}catch(e){}
-    }
-    var safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
-    if(safe){ try{ window.__FTE_SESSION__ = JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){} return; }
-    var s=null; try{ s=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ location.href='access.html'; return; }
-    if(!s||!s.email||!s.role){ location.href='access.html'; return; }
-    if(s.exp && Date.now()>=Number(s.exp)){ localStorage.removeItem(KEY); location.href='access.html'; return; }
-    window.__FTE_SESSION__=s;
-  }catch(e){}
-})();
-</script>
+<!-- Auth overlay (shown until signed in) -->
+<div id="auth" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="brand">Rolling FTE Planner</div>
+      <span class="auth-badge">secure sign-in</span>
+    </div>
+    <div class="auth-row">
+      <div class="sec">
+        <h3>Sign in</h3>
+        <div class="input"><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="you@company.com"></div>
+        <div class="input"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="********"></div>
+        <button id="btnLogin" class="btn primary" style="background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff;border:none">Sign in</button>
+        <div id="loginErr" class="muted" style="color:#dc2626;margin-top:6px;min-height:18px"></div>
+      </div>
+      <div class="sec">
+        <h3>Create account</h3>
+        <div class="input"><label>Email</label><input id="createEmail" type="email" autocomplete="username" placeholder="you@company.com"></div>
+        <div class="input"><label>Password (min 8)</label><input id="createPass" type="password" minlength="8" autocomplete="new-password" placeholder="********"></div>
+        <button id="btnCreate" class="btn">Create account</button>
+        <div id="createErr" class="muted" style="color:#dc2626;margin-top:6px;min-height:18px"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px"><span id="authStatus" class="muted"></span></div>
+  </div>
+</div>
 
 <header class="appbar">
   <div class="row">
     <div class="brand">Rolling FTE Planner</div>
     <span class="chip" id="horizonChip"></span>
-    <span class="chip">build 2025-10-11d</span>
+    <span class="chip">build single-file</span>
   </div>
   <div class="row"><span class="muted" id="userInfo"></span><button class="btn small" id="btnSignOut">Sign out</button></div>
 </header>
 
 <div class="wrap">
+  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sec" id="secGlobal">
       <div class="row" style="justify-content:space-between;align-items:center">
-        <h3 style="margin:0">Global SETTINGS</h3>
+        <h3 style="margin:0">Global Settings</h3>
         <button id="btnToggleGlobal" class="btn small">Collapse</button>
       </div>
       <div id="globalBody">
@@ -127,6 +144,7 @@
     </div>
   </aside>
 
+  <!-- Main -->
   <main class="content">
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="overview">Outbound</button>
@@ -138,6 +156,7 @@
       <span class="seg" style="margin-left:auto"><button id="btnCollapseAll">Collapse all months</button><button id="btnExpandAll">Expand all</button></span>
     </div>
 
+    <!-- Outbound -->
     <section id="tab-overview">
       <div class="row" style="margin-bottom:8px">
         <div class="input" style="width:200px"><label>Start month</label><input id="startMonth" type="month"></div>
@@ -147,6 +166,7 @@
       <div id="months"></div>
     </section>
 
+    <!-- Outbound – Staff -->
     <section id="tab-staff" style="display:none">
       <div class="row" style="margin-bottom:8px">
         <div class="input" style="width:220px"><label>View starting month</label><input id="staffStart" type="month"></div>
@@ -173,6 +193,7 @@
       </div>
     </section>
 
+    <!-- Inbound -->
     <section id="tab-inbound" style="display:none">
       <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:8px">
         <div class="row" style="gap:14px">
@@ -225,6 +246,7 @@
       </div>
     </section>
 
+    <!-- Inbound – Staff -->
     <section id="tab-instaff" style="display:none">
       <div class="row" style="margin-bottom:8px">
         <div class="input" style="width:220px"><label>View starting month</label><input id="inStaffStart" type="month"></div>
@@ -243,6 +265,7 @@
       <div class="hint" style="margin-top:8px">Inbound need comes from the Inbound tab’s monthly computation. Enter staffed inbound FTE per month here.</div>
     </section>
 
+    <!-- Executive Summary -->
     <section id="tab-exec" style="display:none">
       <div class="row" style="justify-content:space-between">
         <div class="row"><span class="chip" id="execRange"></span></div>
@@ -268,512 +291,596 @@
       </div>
     </section>
 
+    <!-- Diagnostics -->
     <section id="tab-diag" style="display:none"><div id="diagList"></div></section>
   </main>
 </div>
 
-<div id="errbox">[init] JS starting…</div>
-
-<script>
-/* ===== Debug logger ===== */
-(function(){
-  function log(msg){ try{
-    var b=document.getElementById('errbox'); if(!b) return;
-    var p=document.createElement('div'); p.textContent='['+new Date().toISOString()+'] '+msg; b.appendChild(p);
-  }catch(e){} }
-  window.__dbg = { log: log };
-  log('JS loaded ✓');
-})();
-
-/* ===== Helpers ===== */
-function $(sel){ return document.querySelector(sel); }
-function $all(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
-function readNum(el){ var s=((el && el.value) || '').replace(/[^0-9.\-]/g,''); var v=parseFloat(s); return isNaN(v)?0:v; }
-function setNum(el,v,dec){ if(!el) return; if(dec==null) dec=0; el.value=(isFinite(v)?Number(v).toFixed(dec):''); }
-function ymKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
-function normalizeYM(s){
-  if(!s) return s;
-  var m1 = /^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return m1[1]+'-'+String(Number(m1[2])).padStart(2,'0');
-  var m2 = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m2) return m2[1]+'-'+String(Number(m2[2])).padStart(2,'0');
-  return s;
-}
-function ymToDate(ym){ var n=normalizeYM(ym); if(!n) return new Date(); var parts=n.split('-'); return new Date(Number(parts[0]), Number(parts[1])-1, 1); }
-function dedupAndSortMonths(arr){
-  var map={}, out=[];
-  (arr||[]).forEach(function(m){
-    var ym = normalizeYM((m && m.ym) || ''); if(!ym) return;
-    var d=ymToDate(ym);
-    var prev=map[ym]||{};
-    map[ym]=Object.assign({}, prev, m, {ym:ym, name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});
-  });
-  Object.keys(map).sort(function(a,b){ return ymToDate(a)-ymToDate(b); }).forEach(function(k){ out.push(map[k]); });
-  return out;
-}
-
-/* ===== State ===== */
-var session = window.__FTE_SESSION__ || {email:'(safe)', role:'user'};
-var STATE_KEY='fte-state-v2', state=null;
-function defaultState(){
-  var now=new Date(); var start=new Date(now.getFullYear(),now.getMonth(),1);
-  var months=[]; for(var i=0;i<12;i++){ var d=new Date(start.getFullYear(),start.getMonth()+i,1); var ym=ymKey(d); var name=d.toLocaleString(undefined,{month:'long',year:'numeric'}); months.push({ym:ym,name:name}); }
-  months=months.map(function(m){ return Object.assign({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}, m); });
-  return {
-    globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
-    holiday:{},
-    months:months,
-    inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}
+<!-- Firebase (modules) -->
+<script type="module">
+  /************* OWNER EMAIL & FIREBASE CONFIG *************/
+  const OWNER_EMAIL = "phoneemail07@gmail.com";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
+    authDomain: "fte-planner.firebaseapp.com",
+    projectId: "fte-planner",
+    storageBucket: "fte-planner.firebasestorage.app",
+    messagingSenderId: "410936425819",
+    appId: "1:410936425819:web:4332c19848bf6ef64c2e7e",
+    measurementId: "G-0BZP3LETBE"
   };
-}
-function repairState(raw){
-  var d=defaultState();
-  var g=Object.assign({}, d.globals, (raw && raw.globals)||{});
-  var h={}; var k;
-  for(k in ((raw && raw.holiday)||{})){ h[normalizeYM(k)]=(raw.holiday[k]||[]); }
-  var months=dedupAndSortMonths((raw && raw.months)||d.months).map(function(m){
-    return Object.assign({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,ym:normalizeYM(m.ym)}, m);
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    setPersistence, browserLocalPersistence, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  await setPersistence(auth, browserLocalPersistence);
+
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const $  = s=>document.querySelector(s);
+  const STATE_KEY='fte-state-v2';
+
+  /* ===== Auth UI ===== */
+  const authWrap = $('#auth');
+  const AUTH_STATUS = $('#authStatus');
+  const userInfo = $('#userInfo');
+
+  function showAuth(on){ authWrap.hidden = !on; }
+
+  $('#btnLogin').onclick = async () => {
+    $('#loginErr').textContent = ''; AUTH_STATUS.textContent='Signing in…';
+    try{
+      const email = ($('#loginEmail').value||'').trim().toLowerCase();
+      const pass  = $('#loginPass').value||'';
+      if(!email || !pass){ $('#loginErr').textContent='Enter email and password.'; AUTH_STATUS.textContent=''; return; }
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
+      localStorage.setItem('fte-session', JSON.stringify({ email: cred.user.email, role, exp: Date.now()+1000*60*60*12 }));
+    }catch(e){ $('#loginErr').textContent = mapAuthError(e); }
+    AUTH_STATUS.textContent='';
+  };
+
+  $('#btnCreate').onclick = async () => {
+    $('#createErr').textContent = ''; AUTH_STATUS.textContent='Creating account…';
+    try{
+      const email = ($('#createEmail').value||'').trim().toLowerCase();
+      const pass  = $('#createPass').value||'';
+      if(!email || !pass){ $('#createErr').textContent='Enter email and password.'; AUTH_STATUS.textContent=''; return; }
+      if(pass.length<8){ $('#createErr').textContent='Password must be at least 8 characters.'; AUTH_STATUS.textContent=''; return; }
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
+      localStorage.setItem('fte-session', JSON.stringify({ email: cred.user.email, role, exp: Date.now()+1000*60*60*12 }));
+    }catch(e){ $('#createErr').textContent = mapAuthError(e); }
+    AUTH_STATUS.textContent='';
+  };
+
+  $('#btnSignOut').onclick = async () => {
+    try { await signOut(auth); } catch {}
+    try { localStorage.removeItem('fte-session'); } catch {}
+    showAuth(true);
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    const s = readSession();
+    userInfo.textContent = (s?.email? s.email+' · '+s.role : '(not signed in)');
+    showAuth(!user || !s?.email);
+    if(user && s?.email){ initApp(); }
   });
-  if(!months.length) months=d.months;
-  var inbound=Object.assign({}, d.inbound, (raw && raw.inbound)||{});
-  inbound.monthFTE=inbound.monthFTE||{}; inbound.monthStaffed=inbound.monthStaffed||{};
-  return {globals:g,holiday:h,months:months,inbound:inbound};
-}
-function loadState(){ try{ var raw=JSON.parse(localStorage.getItem(STATE_KEY)||'null'); if(!raw) return defaultState(); return repairState(raw); }catch(e){ return defaultState(); } }
-function saveState(){ try{ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }catch(e){} }
 
-/* ===== Calculations ===== */
-function getWorkdays(ym,holidaysSet){
-  var parts=normalizeYM(ym).split('-'); var Y=Number(parts[0]), M=Number(parts[1]); if(!Y||!M) return 0;
-  var d0=new Date(Y,M-1,1), wd=0, d=new Date(d0);
-  while(d.getMonth()===M-1){ var dow=d.getDay(); var iso=d.toISOString().slice(0,10); if(dow>=1&&dow<=5 && !holidaysSet.has(iso)) wd++; d.setDate(d.getDate()+1); }
-  return wd;
-}
-function monthCalc(m){
-  var g=state.globals, ym=normalizeYM(m.ym);
-  var holidays=new Set((state.holiday[ym]||[]));
-  var workdays=getWorkdays(ym,holidays);
-  var hours=workdays*g.hoursPerDay;
-  var aPct=(m.attritionPct==null?0:m.attritionPct)/100;
-  var attrPatients=(m.somPatients||0)*aPct;
-  var netPatients=Math.max(0,(m.somPatients||0)+(m.enrollments||0)-attrPatients-(m.practiceLoss||0));
-  var slPatients=Math.round(netPatients*(g.sl/100));
-  var effHr=g.hoursPerDay*(1-(g.shrink/100));
-  var perFTE=Math.max(0.0001,g.compPerHr*effHr);
-  var denom=(workdays>0?workdays*perFTE:0);
-  var fteNeed=denom>0?(slPatients/denom):0;
-  var fteAttrPct=(m.fteAttritionPct==null?g.defFteAttr:m.fteAttritionPct)/100;
-  var eomFTE=Math.max(0,(m.somFTE||0)-((m.somFTE||0)*fteAttrPct)+(m.newHires||0));
-  return {workdays:workdays,hours:hours,attrPatients:attrPatients,netPatients:netPatients,slPatients:slPatients,fteNeed:fteNeed,eomFTE:eomFTE};
-}
-function effectiveSupplyForMonth(idx){
-  var g=state.globals, m=state.months[idx]; if(!m) return 0;
-  var som=m.somFTE||0;
-  var curr=(m.newHires||0)*(g.ramp0/100);
-  var p1=(state.months[idx-1]&&state.months[idx-1].newHires)||0;
-  var p2=(state.months[idx-2]&&state.months[idx-2].newHires)||0;
-  var r1lack = 1 - (g.ramp1/100);
-  var r2lack = 1 - (g.ramp2/100);
-  var degrade = p1*r1lack + p2*r2lack;
-  return Math.max(0, som - degrade + curr);
-}
-
-/* ===== Rendering ===== */
-function renderSidebar(){
-  var g=state.globals;
-  setNum($('#g_comp'),g.compPerHr,2); setNum($('#g_hours'),g.hoursPerDay,2); setNum($('#g_shrink'),g.shrink,1);
-  setNum($('#g_sl'),g.sl,0); setNum($('#g_fteattr'),g.defFteAttr,2);
-  setNum($('#r_0'),g.ramp0,1); setNum($('#r_1'),g.ramp1,1); setNum($('#r_2'),g.ramp2,0);
-  var ioSec=$('#ioSec'); if(ioSec){ ioSec.style.display = (session.role==='superadmin')?'block':'none'; }
-  var ui=$('#userInfo'); if(ui){ ui.textContent=(session.email||'(safe)')+' · '+(session.role||'user'); }
-}
-function schedBreak(fte,hours){ var heads=(fte*173.33)/(hours*21.666); return(!isFinite(heads)||heads<=0)?'0.0':heads.toFixed(1); }
-
-function renderOverview(){
-  state.months=dedupAndSortMonths(state.months);
-  var cont=$('#months'); if(!cont) return; cont.innerHTML='';
-  var startSel = normalizeYM(($('#startMonth')&&$('#startMonth').value) || ymKey(new Date()));
-  var horizon = Number(($('#horizon')&&$('#horizon').value) || 12);
-
-  var span=[]; for(var i=0;i<horizon;i++){ var d=new Date(ymToDate(startSel)); d.setMonth(d.getMonth()+i); span.push(ymKey(d)); }
-  var map={}; state.months.forEach(function(m){ map[normalizeYM(m.ym)]=m; });
-  for(var j=0;j<span.length;j++){ if(!map[span[j]]) ensureMonth(span[j]); }
-  state.months=dedupAndSortMonths(state.months);
-
-  for(var i=0;i<state.months.length;i++){
-    var m=state.months[i];
-    if(i>0 && m.autoCarryFTE){ m.somFTE = monthCalc(state.months[i-1]).eomFTE; }
-    if(i>0 && m.autoSOM){ m.somPatients = Math.max(0, monthCalc(state.months[i-1]).netPatients); }
+  function readSession(){
+    try{ const s=JSON.parse(localStorage.getItem('fte-session')||'null'); if(!s) return null;
+      if(s.exp && Date.now()>=Number(s.exp)){ localStorage.removeItem('fte-session'); return null; }
+      return s;
+    }catch{return null;}
+  }
+  function mapAuthError(e){
+    const c = e?.code || '';
+    if(c.includes('auth/invalid-credential')) return 'Invalid email or password.';
+    if(c.includes('auth/invalid-email')) return 'Invalid email address.';
+    if(c.includes('auth/user-not-found')) return 'Account not found.';
+    if(c.includes('auth/wrong-password')) return 'Incorrect password.';
+    if(c.includes('auth/email-already-in-use')) return 'Email is already registered.';
+    if(c.includes('auth/network-request-failed')) return 'Network error. Try again.';
+    return 'Error: ' + (e?.message || 'Unknown error');
   }
 
-  span.forEach(function(ym){
-    var m=state.months.find(function(x){ return normalizeYM(x.ym)===ym; }); if(!m) return;
-    var mc=monthCalc(m);
-    var row=document.createElement('div'); row.className='month-row'+(m.open?' open':'');
-    row.innerHTML =
-      '<div class="month-head">'+
-        '<div class="row"><div class="m-title">'+m.name+'</div><span class="muted">Workdays: '+mc.workdays+' • Hours: '+mc.hours+'</span></div>'+
-        '<div class="row"><button class="btn small" data-act="toggle">'+(m.open?'Collapse':'Expand')+'</button></div>'+
-      '</div>'+
-      '<div class="kpis">'+
-        '<div class="k"><label>Start-of-Month Patients</label><input data-f="somPatients" maxlength="6" placeholder="0" value="'+(m.somPatients||'')+'"></div>'+
-        '<div class="k"><label>SL Patients ('+state.globals.sl+'% of Net)</label><div class="val">'+mc.slPatients.toLocaleString()+'</div></div>'+
-        '<div class="k"><label>FTE Need</label><div class="val">'+mc.fteNeed.toFixed(1)+'</div></div>'+
-        '<div class="k"><label>EOM Patients (Net)</label><div class="val">'+Math.round(mc.netPatients).toLocaleString()+'</div></div>'+
-        '<div class="k"><label>SOM FTE</label><input data-f="somFTE" placeholder="0.0" value="'+(m.somFTE||'')+'"></div>'+
-        '<div class="k"><label>EOM FTE</label><div class="val">'+mc.eomFTE.toFixed(1)+'</div></div>'+
-        '<div class="k"><label>8h Schedules</label><div class="val">'+schedBreak(mc.fteNeed,8)+'</div></div>'+
-        '<div class="k"><label>10h Schedules</label><div class="val">'+schedBreak(mc.fteNeed,10)+'</div></div>'+
-        '<div class="k"><label>6h PT</label><div class="val">'+schedBreak(mc.fteNeed,6)+'</div></div>'+
-        '<div class="k"><label>4h PT</label><div class="val">'+schedBreak(mc.fteNeed,4)+'</div></div>'+
-        '<div class="k"><label>Auto-carry SOM FTE → next</label><select data-f="autoCarryFTE"><option value="true" '+(m.autoCarryFTE?'selected':'')+'>On</option><option value="false" '+(!m.autoCarryFTE?'selected':'')+'>Off</option></select></div>'+
-        '<div class="k"><label>Auto-SOM Patients (prev EOM)</label><select data-f="autoSOM"><option value="false" '+(!m.autoSOM?'selected':'')+'>Off</option><option value="true" '+(m.autoSOM?'selected':'')+'>On</option></select></div>'+
-      '</div>'+
-      '<div class="month-body">'+
-        '<div class="row">'+
-          '<div class="input" style="width:160px"><label>Enrollments (adds)</label><input data-f="enrollments" placeholder="0" value="'+(m.enrollments||'')+'"></div>'+
-          '<div class="input" style="width:160px"><label>Practice Loss (subs)</label><input data-f="practiceLoss" placeholder="0" value="'+(m.practiceLoss||'')+'"></div>'+
-          '<div class="input" style="width:170px"><label>Patient Attrition %</label><input data-f="attritionPct" placeholder="(per-month)" value="'+(m.attritionPct==null?'':m.attritionPct)+'"></div>'+
-          '<div class="input" style="width:160px"><label>New Hires (FTE)</label><input data-f="newHires" placeholder="0" value="'+(m.newHires||'')+'"></div>'+
-          '<div class="input" style="width:170px"><label>FTE Attrition % (override)</label><input data-f="fteAttritionPct" placeholder="(global)" value="'+(m.fteAttritionPct==null?'':m.fteAttritionPct)+'"></div>'+
-        '</div>'+
-        '<div class="hint">Net = SOM + Enrollments − SOM×Attr% − Practice Loss. SL Patients = Net × '+state.globals.sl+'%.</div>'+
-      '</div>';
-    var btn=row.querySelector('[data-act="toggle"]'); if(btn){ btn.addEventListener('click', function(){ m.open=!m.open; __dbg.log('click: toggle '+m.ym); renderOverview(); }); }
-    $all('input[data-f],select[data-f]', row).forEach(function(inp){
-      inp.addEventListener('input', function(){
-        var f=inp.getAttribute('data-f'); var v=(inp.tagName==='SELECT'? inp.value : (inp.value||'').replace(/[^0-9.\-]/g,''));
-        if(f==='autoCarryFTE'||f==='autoSOM'){ m[f]=(v==='true'); }
-        else if(['somPatients','enrollments','practiceLoss','somFTE','newHires'].indexOf(f)>=0){ m[f]= (v===''?0:parseFloat(v)); }
-        else if(['attritionPct','fteAttritionPct'].indexOf(f)>=0){ m[f]= (v===''?null:parseFloat(v)); }
-        saveState();
-      });
-      inp.addEventListener('blur', function(){ renderAll(); });
-    });
-    cont.appendChild(row);
-  });
-  var hz=$('#horizon'); if(hz) $('#horizonChip').textContent = hz.value+'-month horizon';
-}
+  /* ===== App logic (unchanged requests) ===== */
 
-function ensureMonth(ym){
-  ym=normalizeYM(ym); if(!ym) return;
-  var exists=state.months.find(function(x){ return x.ym===ym; });
-  if(!exists){
-    var d=ymToDate(ym);
-    state.months.push({ym:ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false});
-    state.months=dedupAndSortMonths(state.months);
-  }
-}
+  /* Utilities */
+  const $q=s=>document.querySelector(s), $qa=s=>Array.from(document.querySelectorAll(s));
+  const readNum=(el)=>{const s=(el?.value||'').replace(/[^0-9.\-]/g,'');const v=parseFloat(s);return isNaN(v)?0:v;}
+  const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
 
-/* Exec charts (unchanged except guards) */
-var netChart=null, fteChart=null;
-function renderExec(){
-  var group=document.querySelector('.execwin');
-  if(group){
-    $all('button[data-execwin]', group).forEach(function(b){
-      b.addEventListener('click', function(){
-        $all('button', group).forEach(function(x){ x.classList.remove('active'); });
-        b.classList.add('active'); __dbg.log('click: execwin '+b.getAttribute('data-execwin')); renderExec();
-      }, {once:true});
-    });
-  }
-  var active=(group && group.querySelector('button.active[data-execwin]')) || (group && group.querySelector('button[data-execwin="1"]'));
-  var win=Number(active && active.getAttribute('data-execwin') || 1);
-  var startVal = ($('#startMonth') && $('#startMonth').value) || ymKey(new Date());
-  var startIdx=Math.max(0, state.months.findIndex(function(m){ return normalizeYM(m.ym)>=startVal; }));
-  var months=state.months.slice(startIdx, startIdx+win);
-  if(!months.length) return;
-  var range=$('#execRange'); if(range){ range.textContent = months[0].name+' → '+months[months.length-1].name; }
-  var cards=$('#execCards'); if(cards) cards.innerHTML='';
-  var labels=[], nets=[], needs=[];
-  months.forEach(function(m){
-    var mc=monthCalc(m); labels.push(m.name); nets.push(mc.netPatients); needs.push(mc.fteNeed);
-    var gap=Math.max(0,mc.fteNeed-(m.somFTE||0));
-    var div=document.createElement('div'); div.className='card';
-    div.innerHTML='<div class="row" style="justify-content:space-between"><strong>'+m.name+
-    '</strong><span class="chip">WD '+mc.workdays+'</span></div>'+
-    '<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:8px">'+
-    '<div class="chip">SOM '+Number(m.somPatients||0).toLocaleString()+'</div>'+
-    '<div class="chip">Enroll '+Number(m.enrollments||0).toLocaleString()+'</div>'+
-    '<div class="chip">Loss '+Number(m.practiceLoss||0).toLocaleString()+'</div>'+
-    '<div class="chip">Attr '+((m.attritionPct==null?0:m.attritionPct).toFixed(2))+'%</div></div>'+
-    '<div style="margin-top:8px">'+
-    '<div class="row"><span class="muted">EOM Patients (Net)</span><span style="margin-left:auto;font-weight:700">'+Math.round(mc.netPatients).toLocaleString()+'</span></div>'+
-    '<div class="row"><span class="muted">SL Patients</span><span style="margin-left:auto;font-weight:700)">'+mc.slPatients.toLocaleString()+'</span></div>'+
-    '<div class="row"><span class="muted">FTE Need</span><span style="margin-left:auto;font-weight:700)">'+mc.fteNeed.toFixed(1)+'</span></div>'+
-    '<div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto)">'+(m.somFTE||0).toFixed(1)+'</span></div>'+
-    '<div class="row"><span class="muted '+(gap>0?'danger':'ok')+'">Hiring Gap (vs SOM)</span><span style="margin-left:auto)">'+gap.toFixed(1)+'</span></div></div>';
-    if(cards) cards.appendChild(div);
-  });
-  var ncEl=document.getElementById('chartNet'), fcEl=document.getElementById('chartFte');
-  if(ncEl && window.Chart){
-    var nc=ncEl.getContext('2d'); if(netChart) netChart.destroy();
-    netChart=new Chart(nc,{type:'line',data:{labels:labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); 
-  }
-  if(fcEl && window.Chart){
-    var fc=fcEl.getContext('2d'); if(fteChart) fteChart.destroy();
-    fteChart=new Chart(fc,{type:'line',data:{labels:labels,datasets:[{label:'FTE Need',data:needs}]}}); 
-  }
-}
+  /* Month helpers */
+  function normalizeYM(s){ if(!s)return s; const m1=/^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
+    const m2=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m2) return `${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`; return s;}
+  function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+  function ymToDate(ym){const n=normalizeYM(ym); if(!n) return new Date(); const [Y,M]=n.split('-').map(Number); return new Date(Y, (M||1)-1, 1);}
+  function dedupAndSortMonths(arr){ const map=new Map(); (arr||[]).forEach(m=>{const ym=normalizeYM(m?.ym||''); if(!ym) return; const d=ymToDate(ym); const prev=map.get(ym)||{}; map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});}); return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));}
+  function buildMonths(startDate,count){const arr=[];for(let i=0;i<count;i++){const d=new Date(startDate.getFullYear(),startDate.getMonth()+i,1);const ym=ymKey(d);const name=d.toLocaleString(undefined,{month:'long',year:'numeric'});arr.push({ym,name});}return arr;}
+  function ensureMonth(ym){ym=normalizeYM(ym); if(!ym) return; const exists=state.months.find(m=>m.ym===ym);
+    if(!exists){const d=ymToDate(ym); state.months.push({ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}); state.months=dedupAndSortMonths(state.months);} }
+  function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1)){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
 
-/* Staffing + Inbound renderers (unchanged core, log clicks) */
-function renderStaffing(){
-  var tbody=$('#staffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
-  var mix=[readNum($('#mix8')),readNum($('#mix10')),readNum($('#mix6')),readNum($('#mix4'))];
-  var sum=(mix[0]+mix[1]+mix[2]+mix[3])||1; var frac=mix.map(function(x){ return x/sum; });
-  var start=(($('#staffStart')&&$('#staffStart').value) || ($('#startMonth')&&$('#startMonth').value) || ymKey(new Date())); start=normalizeYM(start); ensureMonth(start);
-  var idx=state.months.findIndex(function(m){ return normalizeYM(m.ym)===start; });
-  var view=state.months.slice(idx,idx+12);
-  view.forEach(function(m,i){
-    var mc=monthCalc(m), globalIdx=idx+i;
-    var effSupply = effectiveSupplyForMonth(globalIdx);
-    var gapEff=Math.max(0,mc.fteNeed-effSupply);
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+m.name+'</td>'+
-      '<td>'+mc.fteNeed.toFixed(1)+'</td>'+
-      '<td>'+((m.somFTE||0).toFixed(1))+'</td>'+
-      '<td>'+effSupply.toFixed(1)+'</td>'+
-      '<td>'+gapEff.toFixed(1)+'</td>'+
-      '<td>'+(gapEff*frac[0]).toFixed(1)+'</td>'+
-      '<td>'+(gapEff*frac[1]).toFixed(1)+'</td>'+
-      '<td>'+(gapEff*frac[2]).toFixed(1)+'</td>'+
-      '<td>'+(gapEff*frac[3]).toFixed(1)+'</td>';
-    tbody.appendChild(tr);
-  });
-}
-
-function ensureInboundGrid(){
-  var grid=$('#intervalGrid'), body=$('#intervalBody'); if(!grid||!body) return;
-  grid.style.display='block'; body.innerHTML='';
-  var ivl=Number(($('#in_ivl')&&$('#in_ivl').value) || 30);
-  var slots=Math.round(1440/ivl), rows=[];
-  for(var i=0;i<slots;i++){
-    var mins=i*ivl, hh=String(Math.floor(mins/60)).padStart(2,'0'), mm=String(mins%60).padStart(2,'0');
-    var label=hh+':'+mm, prev=(state.inbound.rows||[]).find(function(r){ return r.label===label; });
-    rows.push({label:label,calls:prev?prev.calls:0, a:0, N:0, SL:0, ASA:0, Nadj:0});
-  }
-  state.inbound.ivl=ivl; state.inbound.rows=rows; saveState();
-  rows.forEach(function(r,idx){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+r.label+'</td>'+
-      '<td><input data-in="calls" data-idx="'+idx+'" value="'+r.calls+'" style="width:100px"></td>'+
-      '<td class="muted" data-out="a" data-idx="'+idx+'">0.00</td>'+
-      '<td data-out="N" data-idx="'+idx+'">0</td>'+
-      '<td data-out="SL" data-idx="'+idx+'">0%</td>'+
-      '<td data-out="ASA" data-idx="'+idx+'">0</td>'+
-      '<td data-out="Nadj" data-idx="'+idx+'">0</td>';
-    body.appendChild(tr);
-  });
-  $all('input[data-in="calls"]', body).forEach(function(inp){
-    inp.addEventListener('input', function(){
-      var i=Number(inp.getAttribute('data-idx')); var val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      state.inbound.rows[i].calls=val; saveState();
-    });
-  });
-}
-
-function erlangC(N,a){ if(N<=0||a>=N) return 1; var term=1,sum=1; for(var k=1;k<N;k++){ term=term*a/k; sum+=term; } var termN=term*a/N; var numer=termN*(N/(N-a)); return numer/(sum+numer); }
-function serviceLevel(N,a,AHT,T){ if(N<=0) return 0; if(a===0) return 1; if(a>=N) return 0; var ec=erlangC(N,a); var sl=1-ec*Math.exp(-(N-a)*(T/AHT)); return Math.max(0,Math.min(1,sl)); }
-function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; var ec=erlangC(N,a); return (ec*AHT)/(N-a); }
-function findAgentsForSL(a,AHT,T,targetSL){ var N=Math.max(1,Math.ceil(a)+1); for(var i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
-
-function inboundCompute(){
-  var rows=state.inbound.rows; if(!rows||!rows.length) ensureInboundGrid();
-  rows=state.inbound.rows;
-  var ivl=Number(($('#in_ivl')&&$('#in_ivl').value)||30);
-  var AHT=readNum($('#in_aht'))||480;
-  var SLtgt=(readNum($('#in_sl'))||80)/100;
-  var T=readNum($('#in_t'))||30;
-  var shrink=(($('#in_shrink')&&$('#in_shrink').value.trim())? readNum($('#in_shrink')) : state.globals.shrink) / 100;
-  var secs=ivl*60, agentHours=0, peakAgents=0, avgAgents=0;
-
-  rows.forEach(function(r){
-    var calls=+r.calls||0, a=(calls*AHT)/secs, N=0, sl=0, _asa=0;
-    if(calls>0 && AHT>0){ N=findAgentsForSL(a,AHT,T,SLtgt); sl=serviceLevel(N,a,AHT,T); _asa=asa(N,a,AHT); }
-    var Nadj = N>0 ? Math.ceil(N/Math.max(0.01,(1-shrink))) : 0;
-    r.a=a; r.N=N; r.SL=sl; r.ASA=_asa; r.Nadj=Nadj;
-    agentHours += Nadj * (secs/3600);
-    peakAgents = Math.max(peakAgents, Nadj);
-    avgAgents += Nadj;
-  });
-  avgAgents = rows.length ? avgAgents/rows.length : 0;
-
-  var ym = normalizeYM(($('#in_month')&&$('#in_month').value) || (($('#startMonth')&&$('#startMonth').value) || ymKey(new Date())));
-  var holidays=new Set((state.holiday[ym]||[])), wd=getWorkdays(ym, holidays);
-  var effHoursPerFTE = state.globals.hoursPerDay * (1 - (state.globals.shrink/100));
-  var dailyFTE = effHoursPerFTE>0 ? agentHours/effHoursPerFTE : 0;
-  var monthlyFTE = dailyFTE * wd;
-
-  var body=$('#intervalBody');
-  if(body){ $all('tr', body).forEach(function(tr,i){
-    var r=rows[i]; tr.querySelector('[data-out="a"]').textContent=r.a.toFixed(2);
-    tr.querySelector('[data-out="N"]').textContent=String(r.N);
-    tr.querySelector('[data-out="SL"]').textContent=(r.SL*100).toFixed(0)+'%';
-    tr.querySelector('[data-out="ASA"]').textContent=isFinite(r.ASA)? r.ASA.toFixed(0):'—';
-    tr.querySelector('[data-out="Nadj"]').textContent=String(r.Nadj);
-  });}
-  $('#intervalGrid').style.display='block';
-  $('#in_summary_hdr').textContent = ym+' · '+wd+' workdays · '+ivl+'-min';
-  $('#in_agent_hours').textContent = dailyFTE>0 ? (monthlyFTE/wd*effHoursPerFTE).toFixed(1) : agentHours.toFixed(1); // minor display
-  $('#in_avg_agents').textContent = avgAgents.toFixed(1);
-  $('#in_peak_agents').textContent = peakAgents.toFixed(0);
-  $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
-  $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
-
-  state.inbound.monthFTE[ym]=monthlyFTE; saveState();
-}
-
-/* ===== Wire events (defensive) ===== */
-function on(id, event, fn){
-  var el = (typeof id==='string') ? document.getElementById(id) : id;
-  if(el){ el.addEventListener(event, function(e){ __dbg.log('click: '+(el.id||el.getAttribute('data-tab')||el.textContent)); fn(e); }); }
-}
-function renderAll(){
-  saveState(); renderSidebar(); renderOverview(); renderExec(); renderStaffing(); renderInStaff(); renderDiag();
-  var hz=$('#horizon'); if(hz) $('#horizonChip').textContent = hz.value+'-month horizon';
-}
-function renderInStaff(){
-  var tbody=$('#inStaffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
-  var mix=[readNum($('#imix8')),readNum($('#imix10')),readNum($('#imix6')),readNum($('#imix4'))];
-  var sum=(mix[0]+mix[1]+mix[2]+mix[3])||1; var frac=mix.map(function(x){return x/sum;});
-  var start=(($('#inStaffStart')&&$('#inStaffStart').value) || ($('#startMonth')&&$('#startMonth').value) || ymKey(new Date())); start=normalizeYM(start); ensureMonth(start);
-  var idx=state.months.findIndex(function(m){ return normalizeYM(m.ym)===start; });
-  var view=state.months.slice(idx,idx+12);
-  view.forEach(function(m){
-    var ym=m.ym, need=(state.inbound.monthFTE && state.inbound.monthFTE[ym]) ? state.inbound.monthFTE[ym] : 0;
-    var staffed=(state.inbound.monthStaffed && typeof state.inbound.monthStaffed[ym]==='number') ? state.inbound.monthStaffed[ym] : 0;
-    var gap=Math.max(0, need - staffed);
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+m.name+'</td><td>'+need.toFixed(1)+'</td>'+
-      '<td><input data-instaff="'+ym+'" value="'+staffed.toFixed(1)+'" style="width:90px"></td>'+
-      '<td>'+gap.toFixed(1)+'</td>'+
-      '<td>'+(gap*frac[0]).toFixed(1)+'</td><td>'+(gap*frac[1]).toFixed(1)+'</td>'+
-      '<td>'+(gap*frac[2]).toFixed(1)+'</td><td>'+(gap*frac[3]).toFixed(1)+'</td>';
-    tbody.appendChild(tr);
-  });
-  $all('input[data-instaff]', tbody).forEach(function(inp){
-    inp.addEventListener('input', function(){
-      var ym=inp.getAttribute('data-instaff'); var v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      state.inbound.monthStaffed[ym]=v; saveState(); renderInStaff();
-    });
-  });
-}
-function renderDiag(){
-  var div=$('#diagList'); if(!div) return; div.innerHTML='';
-  var g=state.globals;
-  function add(msg,fix){ var d=document.createElement('div'); d.className='diag-item'; d.innerHTML='<div><strong>'+msg+'</strong><div class="muted">'+(fix||'')+'</div></div>'; div.appendChild(d); }
-  if(g.compPerHr<=0)add('Comp/hr is 0 — FTE Need would be infinite.','Set Comp/hr > 0 in Global Settings.');
-  if(g.hoursPerDay<=0)add('Hours/day is 0 — denominator invalid.','Set Hours/day > 0 in Global Settings.');
-  if(g.shrink>=100)add('Shrinkage ≥ 100% — effective hours ≤ 0.','Use a shrinkage < 100%. Typical: 25–40%.');
-  state.months.forEach(function(m){
-    if(m.somPatients<0)add(m.name+': SOM patients < 0','Enter a non-negative value.');
-    if((m.attritionPct==null?0:m.attritionPct)>50)add(m.name+': Patient attrition % unusually high','Verify monthly churn; typical 1–10%.');
-    if((m.fteAttritionPct==null?g.defFteAttr:m.fteAttritionPct)>25)add(m.name+': FTE attrition % high','Consider buffer or retention actions.');
-  });
-}
-
-/* ===== Init ===== */
-function init(){
-  state=loadState();
-  var nowYM=ymKey(new Date());
-  if($('#startMonth')) $('#startMonth').value=normalizeYM((state.months[0]&&state.months[0].ym)||nowYM);
-  if($('#staffStart')) $('#staffStart').value=$('#startMonth').value;
-  if($('#in_month')) $('#in_month').value=$('#startMonth').value;
-  if($('#inStaffStart')) $('#inStaffStart').value=$('#startMonth').value;
-
-  // Wire up buttons/tabs safely
-  on('btnSignOut','click', function(){ localStorage.removeItem('fte-session'); location.href='access.html'; });
-  on('btnToggleGlobal','click', function(){ var el=$('#globalBody'); var b=$('#btnToggleGlobal'); var open=(el && el.style.display!=='none'); if(el){ el.style.display=open?'none':'block'; } if(b){ b.textContent=open?'Expand':'Collapse'; } });
-  on('btnCollapseAll','click', function(){ state.months.forEach(function(m){ m.open=false; }); renderOverview(); });
-  on('btnExpandAll','click', function(){ state.months.forEach(function(m){ m.open=true; }); renderOverview(); });
-  on('btnRebuild','click', function(){ renderAll(); });
-  on('btnStaffGo','click', function(){ renderStaffing(); });
-  on('btnInStaffGo','click', function(){ renderInStaff(); });
-  on('btnBuildIntervals','click', function(){ ensureInboundGrid(); });
-  on('btnImportInbound','click', function(){
-    var file=($('#in_csv')&&$('#in_csv').files[0]); if(!file){ alert('Choose a CSV file first.'); return; }
-    var r=new FileReader(); r.onload=function(){
-      try{
-        var text=r.result||''; var lines=text.split(/\r?\n/).filter(function(x){return x.trim().length;});
-        var hdr=lines.shift().split(',').map(function(x){return x.trim().toLowerCase();});
-        var idx={}; hdr.forEach(function(h,i){ idx[h]=i; });
-        if(idx['datetime']==null || idx['calls']==null){ alert('CSV must include datetime,calls'); return; }
-        var ivl=Number(($('#in_ivl')&&$('#in_ivl').value)||30), slots=Math.round(1440/ivl), buckets=new Array(slots).fill(0), daysSet={};
-        lines.forEach(function(line){
-          var c=line.split(','), dt=new Date(c[idx['datetime']]), calls=+c[idx['calls']]||0;
-          if(!isFinite(dt.getTime())) return; var mins=dt.getHours()*60+dt.getMinutes(), bin=Math.floor(mins/ivl);
-          buckets[bin]=(buckets[bin]||0)+calls; daysSet[dt.toISOString().slice(0,10)]=1;
-        });
-        var days=Math.max(1,Object.keys(daysSet).length||1); ensureInboundGrid();
-        for(var i=0;i<slots;i++){ state.inbound.rows[i].calls = Math.round((buckets[i]||0)/days); }
-        saveState(); $all('#intervalBody input[data-in="calls"]').forEach(function(inp,i){ inp.value=state.inbound.rows[i].calls; });
-        alert('Loaded '+days+' day(s) into '+slots+' intervals.');
-      }catch(e){ alert('Import failed: '+e.message); }
-    }; r.readAsText(file);
-  });
-  on('btnInboundCalc','click', function(){ inboundCompute(); });
-  on('btnExportInbound','click', function(){
-    if(!state.inbound.rows||!state.inbound.rows.length){ alert('Nothing to export yet. Build or import intervals first.'); return; }
-    var ym = normalizeYM(($('#in_month')&&$('#in_month').value) || (($('#startMonth')&&$('#startMonth').value) || ymKey(new Date())));
-    var ivl = Number(($('#in_ivl')&&$('#in_ivl').value) || 30), rows=state.inbound.rows;
-    var hdr=['interval','calls','load_erl','agents_N','SL_pct','ASA_sec','agents_with_shrinkage'], csv=[hdr.join(',')];
-    rows.forEach(function(r){ csv.push([r.label,r.calls,(r.a||0).toFixed(2),r.N||0,((r.SL||0)*100).toFixed(0),isFinite(r.ASA)?(r.ASA.toFixed(0)):'',r.Nadj||0].join(',')); });
-    var blob=new Blob([csv.join('\n')],{type:'text/csv'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='inbound_'+ym+'_'+ivl+'min.csv'; a.click();
-  });
-  on('btnExportSummary','click', function(){
-    var mode=$('#exportMode').value, lines=[], start=(($('#startMonth')&&$('#startMonth').value) || ymKey(new Date()));
-    var idx=Math.max(0,state.months.findIndex(function(m){ return normalizeYM(m.ym)>=start; }));
-    var win=Number((document.querySelector('.execwin button.active[data-execwin]') && document.querySelector('.execwin button.active[data-execwin]').getAttribute('data-execwin')) || 1);
-    var view=state.months.slice(idx,idx+win);
-    if(mode==='outbound'||mode==='both'){ lines.push('=== Outbound Summary ==='); view.forEach(function(m){ var mc=monthCalc(m); lines.push(m.name+': SOM '+m.somPatients+', Enroll '+m.enrollments+', Loss '+m.practiceLoss+', Attr '+(m.attritionPct==null?0:m.attritionPct)+'% → EOM '+Math.round(mc.netPatients)+', SL '+mc.slPatients+', FTE Need '+mc.fteNeed.toFixed(1)+', SOM FTE '+(m.somFTE||0).toFixed(1)+', EOM FTE '+mc.eomFTE.toFixed(1)); }); lines.push(''); }
-    if(mode==='inbound'||mode==='both'){ lines.push('=== Inbound Snapshot (monthly FTE by month) ==='); view.forEach(function(m){ var f=(state.inbound.monthFTE||{})[m.ym]||0; lines.push(m.name+': Inbound FTE '+f.toFixed(1)); }); }
-    var blob=new Blob([lines.join('\n')],{type:'text/plain'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='executive-summary.txt'; a.click();
-  });
-
-  // Tabs (event delegation)
-  var tabs=document.getElementById('tabs');
-  if(tabs){
-    tabs.addEventListener('click', function(e){
-      var t=e.target && e.target.closest('.tab'); if(!t) return;
-      __dbg.log('click: tab '+t.getAttribute('data-tab'));
-      $all('.tab').forEach(function(x){ x.classList.remove('active'); }); t.classList.add('active');
-      ['overview','staff','inbound','instaff','exec','diag'].forEach(function(id){ var el=document.getElementById('tab-'+id); if(el) el.style.display='none'; });
-      var target = document.getElementById('tab-'+t.getAttribute('data-tab')); if(target) target.style.display='block';
-    });
-  }
-
-  // Global inputs: save on input; render on blur
-  ['g_comp','g_hours','g_shrink','g_sl','g_fteattr','r_0','r_1','r_2'].forEach(function(id){
-    var el=document.getElementById(id); if(!el) return;
-    var write=function(){
-      var g=state.globals;
-      g.compPerHr=readNum(document.getElementById('g_comp'));
-      g.hoursPerDay=readNum(document.getElementById('g_hours'));
-      g.shrink=readNum(document.getElementById('g_shrink'));
-      g.sl=readNum(document.getElementById('g_sl'));
-      g.defFteAttr=readNum(document.getElementById('g_fteattr'));
-      g.ramp0=readNum(document.getElementById('r_0'));
-      g.ramp1=readNum(document.getElementById('r_1'));
-      g.ramp2=readNum(document.getElementById('r_2'));
+  /* State */
+  let state=null;
+  function defaultState(){
+    const now=new Date();const start=new Date(now.getFullYear(),now.getMonth(),1);
+    const months=buildMonths(start,12).map(m=>({ym:m.ym,name:m.name,somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}));
+    return{
+      globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
+      holiday:{},
+      months,
+      inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}
     };
-    el.addEventListener('input', function(){ write(); saveState(); });
-    el.addEventListener('blur', function(){ write(); renderAll(); });
-  });
+  }
+  function repairState(raw){
+    const d=defaultState();
+    const g={...d.globals,...(raw?.globals||{})}; // NOTE: no global patient attrition
+    const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
+    let months=dedupAndSortMonths(raw?.months||d.months);
+    months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
+    if(!months.length) months=d.months;
+    const inbound={...d.inbound,...(raw?.inbound||{})};
+    inbound.monthFTE=inbound.monthFTE||{}; inbound.monthStaffed=inbound.monthStaffed||{};
+    return{globals:g,holiday:h,months,inbound};
+  }
+  function loadState(){try{const raw=JSON.parse(localStorage.getItem(STATE_KEY)||'null');if(!raw)return defaultState();return repairState(raw);}catch{return defaultState();}}
+  function saveState(){try{localStorage.setItem(STATE_KEY,JSON.stringify(state));}catch{}}
 
-  // Start month reactive
-  var sm=document.getElementById('startMonth'); if(sm){
-    sm.addEventListener('change', function(){
-      var v=normalizeYM(sm.value);
-      if(document.getElementById('staffStart')) document.getElementById('staffStart').value=v;
-      if(document.getElementById('inStaffStart')) document.getElementById('inStaffStart').value=v;
-      if(document.getElementById('in_month')) document.getElementById('in_month').value=v;
-      renderAll();
+  /* Outbound calc */
+  function monthCalc(m){
+    const g=state.globals,ym=normalizeYM(m.ym);
+    const holidays=new Set((state.holiday[ym]||[]));
+    const workdays=getWorkdays(ym,holidays);
+    const hours=workdays*g.hoursPerDay;
+    const aPct=(m.attritionPct==null?0:m.attritionPct)/100; // per-month only
+    const attrPatients=(m.somPatients||0)*aPct;
+    const netPatients=Math.max(0,(m.somPatients||0)+(m.enrollments||0)-attrPatients-(m.practiceLoss||0));
+    const slPatients=Math.round(netPatients*(g.sl/100));
+    const effHr=g.hoursPerDay*(1-(g.shrink/100));
+    const perFTE=Math.max(0.0001,g.compPerHr*effHr);
+    const denom=(workdays>0?workdays*perFTE:0);
+    const fteNeed=denom>0?(slPatients/denom):0;
+    const fteAttrPct=(m.fteAttritionPct==null?g.defFteAttr:m.fteAttritionPct)/100;
+    const eomFTE=Math.max(0,(m.somFTE||0)-((m.somFTE||0)*fteAttrPct)+(m.newHires||0));
+    return{workdays,hours,attrPatients,netPatients,slPatients,fteNeed,eomFTE};
+  }
+
+  /* Effective Supply (Outbound – Staff) with ramp */
+  function effectiveSupplyForMonth(idx){
+    const g=state.globals, m=state.months[idx]; if(!m) return 0;
+    const som=m.somFTE||0;
+    const curr=(m.newHires||0)*(g.ramp0/100);
+    const p1=(state.months[idx-1]?.newHires||0);
+    const p2=(state.months[idx-2]?.newHires||0);
+    const r1lack = 1 - (g.ramp1/100);
+    const r2lack = 1 - (g.ramp2/100);
+    return Math.max(0, som - (p1*r1lack + p2*r2lack) + curr);
+  }
+
+  /* Erlang C (Inbound) */
+  function erlangC(N, a){ if(N<=0) return 1; if(a>=N) return 1; let term=1,sum=1; for(let k=1;k<N;k++){term=term*a/k;sum+=term;} const termN=term*a/N; const numer=termN*(N/(N-a)); return numer/(sum+numer); }
+  function serviceLevel(N,a,AHT,T){ if(N<=0) return 0; if(a===0) return 1; if(a>=N) return 0; const ec=erlangC(N,a); const sl=1-ec*Math.exp(-(N-a)*(T/AHT)); return Math.max(0,Math.min(1,sl)); }
+  function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; const ec=erlangC(N,a); return (ec*AHT)/(N-a); }
+  function findAgentsForSL(a,AHT,T,targetSL){ let N=Math.max(1,Math.ceil(a)+1); for(let i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
+
+  /* Renderers */
+  function renderAll(){ saveState(); renderSidebar(); renderOverview(); renderExec(); renderStaffing(); renderInStaff(); renderDiag(); const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`; }
+  function renderSidebar(){
+    const g=state.globals;
+    setNum($('#g_comp'),g.compPerHr,2);setNum($('#g_hours'),g.hoursPerDay,2);setNum($('#g_shrink'),g.shrink,1);
+    setNum($('#g_sl'),g.sl,0); setNum($('#g_fteattr'),g.defFteAttr,2);
+    setNum($('#r_0'),g.ramp0,1);setNum($('#r_1'),g.ramp1,1);setNum($('#r_2'),g.ramp2,0);
+    const session = readSession();
+    $('#ioSec').style.display=(session?.role==='superadmin')?'block':'none';
+  }
+
+  function renderOverview(){
+    state.months=dedupAndSortMonths(state.months);
+    const cont=$('#months'); if(!cont) return; cont.innerHTML='';
+    const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
+    const horizon = Number($('#horizon')?.value||12);
+
+    const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
+    const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
+    for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
+    state.months=dedupAndSortMonths(state.months);
+
+    for(let i=0;i<state.months.length;i++){
+      const m=state.months[i];
+      if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
+      if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
+    }
+
+    span.forEach(ym=>{
+      const m=state.months.find(x=>normalizeYM(x.ym)===ym); if(!m) return;
+      const mc=monthCalc(m);
+      const row=document.createElement('div');row.className='month-row'+(m.open?' open':'');
+      row.innerHTML=`
+        <div class="month-head">
+          <div class="row"><div class="m-title">${m.name}</div><span class="muted">Workdays: ${mc.workdays} • Hours: ${mc.hours}</span></div>
+          <div class="row"><button class="btn small" data-act="toggle">${m.open?'Collapse':'Expand'}</button></div>
+        </div>
+        <div class="kpis">
+          <div class="k"><label>Start-of-Month Patients</label><input data-f="somPatients" maxlength="6" placeholder="0" value="${m.somPatients||''}"></div>
+          <div class="k"><label>SL Patients (${state.globals.sl}% of Net)</label><div class="val">${mc.slPatients.toLocaleString()}</div></div>
+          <div class="k"><label>FTE Need</label><div class="val">${mc.fteNeed.toFixed(1)}</div></div>
+          <div class="k"><label>EOM Patients (Net)</label><div class="val">${Math.round(mc.netPatients).toLocaleString()}</div></div>
+          <div class="k"><label>SOM FTE</label><input data-f="somFTE" placeholder="0.0" value="${(m.somFTE||'')}"></div>
+          <div class="k"><label>EOM FTE</label><div class="val">${mc.eomFTE.toFixed(1)}</div></div>
+          <div class="k"><label>8h Schedules</label><div class="val">${schedBreak(mc.fteNeed,8)}</div></div>
+          <div class="k"><label>10h Schedules</label><div class="val">${schedBreak(mc.fteNeed,10)}</div></div>
+          <div class="k"><label>6h PT</label><div class="val">${schedBreak(mc.fteNeed,6)}</div></div>
+          <div class="k"><label>4h PT</label><div class="val">${schedBreak(mc.fteNeed,4)}</div></div>
+          <div class="k"><label>Auto-carry SOM FTE → next</label><select data-f="autoCarryFTE"><option value="true" ${m.autoCarryFTE?'selected':''}>On</option><option value="false" ${!m.autoCarryFTE?'selected':''}>Off</option></select></div>
+          <div class="k"><label>Auto-SOM Patients (prev EOM)</label><select data-f="autoSOM"><option value="false" ${!m.autoSOM?'selected':''}>Off</option><option value="true" ${m.autoSOM?'selected':''}>On</option></select></div>
+        </div>
+        <div class="month-body">
+          <div class="row">
+            <div class="input" style="width:160px"><label>Enrollments (adds)</label><input data-f="enrollments" placeholder="0" value="${m.enrollments||''}"></div>
+            <div class="input" style="width:160px"><label>Practice Loss (subs)</label><input data-f="practiceLoss" placeholder="0" value="${m.practiceLoss||''}"></div>
+            <div class="input" style="width:170px"><label>Patient Attrition %</label><input data-f="attritionPct" placeholder="(per-month)" value="${m.attritionPct==null?'':m.attritionPct}"></div>
+            <div class="input" style="width:160px"><label>New Hires (FTE)</label><input data-f="newHires" placeholder="0" value="${m.newHires||''}"></div>
+            <div class="input" style="width:170px"><label>FTE Attrition % (override)</label><input data-f="fteAttritionPct" placeholder="(global)" value="${m.fteAttritionPct==null?'':m.fteAttritionPct}"></div>
+          </div>
+          <div class="hint">Net = SOM + Enrollments − SOM×Attr% − Practice Loss. SL Patients = Net × ${state.globals.sl}%.</div>
+        </div>`;
+      row.querySelector('[data-act="toggle"]').onclick=()=>{m.open=!m.open;renderOverview();};
+      row.querySelectorAll('input[data-f],select[data-f]').forEach(inp=>{
+        inp.oninput=()=>{ // save live, no re-render
+          const f=inp.getAttribute('data-f');
+          let v=inp.tagName==='SELECT'?inp.value:(inp.value||'').replace(/[^0-9.\-]/g,'');
+          if(['somPatients','enrollments','practiceLoss','somFTE','newHires'].includes(f)){m[f]=v===''?0:parseFloat(v);}
+          else if(['attritionPct','fteAttritionPct'].includes(f)){m[f]=v===''?null:parseFloat(v);}
+          else if(f==='autoCarryFTE'||f==='autoSOM'){m[f]=(v==='true');}
+          saveState();
+        };
+        inp.onblur=()=>{ renderAll(); }; // recalc on blur
+      });
+      cont.appendChild(row);
     });
   }
-  var hz=document.getElementById('horizon'); if(hz){ hz.addEventListener('change', renderAll); }
+  function schedBreak(fte,hours){const heads=(fte*173.33)/(hours*21.666);return(!isFinite(heads)||heads<=0)?'0.0':heads.toFixed(1);}
 
-  __dbg.log('handlers: wired');
-  renderAll();
-}
-document.addEventListener('DOMContentLoaded', init);
+  /* Exec */
+  let netChart,fteChart;
+  function renderExec(){
+    const group=document.querySelector('.execwin');
+    if(group){ group.querySelectorAll('button[data-execwin]').forEach(b=>{ b.onclick=()=>{ group.querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderExec(); }; }); }
+    const active=group?.querySelector('button.active[data-execwin]')||group?.querySelector('button[data-execwin="1"]');
+    const win=Number(active?.getAttribute('data-execwin')||1);
+    const startIdx=Math.max(0,state.months.findIndex(m=>normalizeYM(m.ym)>=($('#startMonth')?.value||ymKey(new Date()))));
+    const months=state.months.slice(startIdx,startIdx+win);
+    if(!months.length) return;
+    $('#execRange').textContent=`${months[0].name} → ${months[months.length-1].name}`;
+    const cards=$('#execCards');cards.innerHTML='';
+    const labels=[],nets=[],needs=[];
+    months.forEach(m=>{
+      const mc=monthCalc(m);labels.push(m.name);nets.push(mc.netPatients);needs.push(mc.fteNeed);
+      const gap=Math.max(0,mc.fteNeed-(m.somFTE||0));
+      const div=document.createElement('div');div.className='card';
+      div.innerHTML=`<div class="row" style="justify-content:space-between"><strong>${m.name}</strong><span class="chip">WD ${mc.workdays}</span></div>
+        <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:8px">
+        <div class="chip">SOM ${Number(m.somPatients||0).toLocaleString()}</div>
+        <div class="chip">Enroll ${Number(m.enrollments||0).toLocaleString()}</div>
+        <div class="chip">Loss ${Number(m.practiceLoss||0).toLocaleString()}</div>
+        <div class="chip">Attr ${(m.attritionPct??0).toFixed(2)}%</div></div>
+        <div style="margin-top:8px">
+        <div class="row"><span class="muted">EOM Patients (Net)</span><span style="margin-left:auto;font-weight:700">${Math.round(mc.netPatients).toLocaleString()}</span></div>
+        <div class="row"><span class="muted">SL Patients</span><span style="margin-left:auto;font-weight:700">${mc.slPatients.toLocaleString()}</span></div>
+        <div class="row"><span class="muted">FTE Need</span><span style="margin-left:auto;font-weight:700">${mc.fteNeed.toFixed(1)}</span></div>
+        <div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto">${(m.somFTE||0).toFixed(1)}</span></div>
+        <div class="row"><span class="muted ${gap>0?'danger':'ok'}">Hiring Gap (vs SOM)</span><span style="margin-left:auto">${gap.toFixed(1)}</span></div></div>`;
+      cards.appendChild(div);
+    });
+    const nc=document.getElementById('chartNet').getContext('2d');
+    const fc=document.getElementById('chartFte').getContext('2d');
+    if(netChart)netChart.destroy(); if(fteChart)fteChart.destroy();
+    netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); 
+    fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}}); 
+  }
+
+  /* Outbound – Staff */
+  function renderStaffing(){
+    const tbody=$('#staffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
+    const mix=[readNum($('#mix8')),readNum($('#mix10')),readNum($('#mix6')),readNum($('#mix4'))];
+    const sum=mix.reduce((a,b)=>a+b,0)||1;const frac=mix.map(x=>x/sum);
+    let start=$('#staffStart')?.value||$('#startMonth')?.value||ymKey(new Date()); start=normalizeYM(start); ensureMonth(start);
+    const idx=state.months.findIndex(m=>normalizeYM(m.ym)===start);
+    const view=state.months.slice(idx,idx+12);
+    view.forEach((m,i)=>{
+      const mc=monthCalc(m);
+      const globalIdx = idx+i;
+      const effSupply = effectiveSupplyForMonth(globalIdx);
+      const gapEff=Math.max(0,mc.fteNeed-effSupply);
+      const r8=(gapEff*frac[0]).toFixed(1),r10=(gapEff*frac[1]).toFixed(1),r6=(gapEff*frac[2]).toFixed(1),r4=(gapEff*frac[3]).toFixed(1);
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${m.name}</td>
+        <td>${mc.fteNeed.toFixed(1)}</td>
+        <td>${(m.somFTE||0).toFixed(1)}</td>
+        <td>${effSupply.toFixed(1)}</td>
+        <td>${gapEff.toFixed(1)}</td>
+        <td>${r8}</td><td>${r10}</td><td>${r6}</td><td>${r4}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* Inbound interval grid + CSV import/export */
+  function ensureInboundGrid(){
+    const grid=$('#intervalGrid'); const body=$('#intervalBody');
+    grid.style.display='block'; body.innerHTML='';
+    const ivl = Number($('#in_ivl').value||30);
+    const slots = Math.round(1440/ivl);
+    const rows = [];
+    for(let i=0;i<slots;i++){
+      const mins=i*ivl; const hh=String(Math.floor(mins/60)).padStart(2,'0'); const mm=String(mins%60).padStart(2,'0');
+      const label=`${hh}:${mm}`;
+      const prev = (state.inbound.rows||[]).find(r=>r.label===label);
+      rows.push({label,calls:prev?prev.calls:0, a:0, N:0, SL:0, ASA:0, Nadj:0});
+    }
+    state.inbound.ivl = ivl;
+    state.inbound.rows = rows;
+    saveState();
+    rows.forEach((r,idx)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${r.label}</td>
+        <td><input data-in="calls" data-idx="${idx}" value="${r.calls}" style="width:100px"></td>
+        <td class="muted" data-out="a" data-idx="${idx}">0.00</td>
+        <td data-out="N" data-idx="${idx}">0</td>
+        <td data-out="SL" data-idx="${idx}">0%</td>
+        <td data-out="ASA" data-idx="${idx}">0</td>
+        <td data-out="Nadj" data-idx="${idx}">0</td>`;
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('input[data-in="calls"]').forEach(inp=>{
+      inp.oninput=()=>{ const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0; state.inbound.rows[i].calls = val; saveState(); };
+      inp.onblur=()=>{};
+    });
+  }
+  $('#btnBuildIntervals').onclick=ensureInboundGrid;
+
+  $('#btnImportInbound').onclick=()=>{
+    const file = $('#in_csv').files[0]; if(!file){ alert('Choose a CSV file first.'); return; }
+    const ivl = Number($('#in_ivl').value||30);
+    const slots = Math.round(1440/ivl);
+    const r = new FileReader();
+    r.onload=()=>{
+      const text=r.result||''; const lines=text.split(/\r?\n/).filter(x=>x.trim().length);
+      const hdr=lines.shift().split(',').map(x=>x.trim().toLowerCase());
+      const idx=Object.fromEntries(hdr.map((h,i)=>[h,i]));
+      if(idx['datetime']==null || idx['calls']==null){ alert('CSV must include datetime,calls'); return; }
+      const buckets=new Array(slots).fill(0); let daysSet=new Set();
+      lines.forEach(line=>{
+        const c=line.split(',');
+        const dt=new Date(c[idx['datetime']]); const calls=+c[idx['calls']]||0;
+        if(!isFinite(dt.getTime())) return;
+        const mins=dt.getHours()*60+dt.getMinutes(); const bin=Math.floor(mins/ivl);
+        buckets[bin]=(buckets[bin]||0)+calls;
+        daysSet.add(dt.toISOString().slice(0,10));
+      });
+      const days=Math.max(1,daysSet.size||1);
+      ensureInboundGrid();
+      for(let i=0;i<slots;i++){ state.inbound.rows[i].calls = Math.round((buckets[i]||0)/days); }
+      saveState();
+      $('#intervalBody').querySelectorAll('input[data-in="calls"]').forEach(inp=>{
+        const i=Number(inp.getAttribute('data-idx')); inp.value=state.inbound.rows[i].calls;
+      });
+      alert(`Loaded ${days} day(s) into ${slots} intervals.`);
+    };
+    r.readAsText(file);
+  };
+
+  function erlangRunAndStore(){
+    if(!state.inbound.rows || !state.inbound.rows.length){ ensureInboundGrid(); }
+    const rows = state.inbound.rows;
+    const ivl = Number($('#in_ivl').value||30);
+    const AHT = readNum($('#in_aht'))||480;
+    const SLtgt = (readNum($('#in_sl'))||80)/100;
+    const T = readNum($('#in_t'))||30;
+    const shrink = ($('#in_shrink').value.trim()? readNum($('#in_shrink')) : state.globals.shrink) / 100;
+    const secs = ivl*60;
+
+    let agentHours=0, peakAgents=0, avgAgents=0;
+    rows.forEach((r)=>{
+      const calls = +r.calls||0;
+      const a = (calls*AHT)/secs; let N=0, sl=0, _asa=0;
+      if(calls>0 && AHT>0){ N = findAgentsForSL(a, AHT, T, SLtgt); sl = serviceLevel(N,a,AHT,T); _asa = asa(N,a,AHT); }
+      const Nadj = N>0 ? Math.ceil(N / Math.max(0.01,(1 - shrink))) : 0;
+      r.a=a; r.N=N; r.SL=sl; r.ASA=_asa; r.Nadj=Nadj;
+      agentHours += Nadj * (secs/3600);
+      peakAgents = Math.max(peakAgents, Nadj);
+      avgAgents += Nadj;
+    });
+    avgAgents = rows.length ? avgAgents/rows.length : 0;
+
+    const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date()));
+    const holidays = new Set((state.holiday[ym]||[]));
+    const wd = getWorkdays(ym, holidays);
+    const effHoursPerFTE = state.globals.hoursPerDay * (1 - (state.globals.shrink/100));
+    const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
+    const monthlyFTE = dailyFTE * wd;
+
+    const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
+    body.querySelectorAll('tr').forEach((tr,i)=>{
+      const r=rows[i];
+      tr.querySelector('[data-out="a"]').textContent = r.a.toFixed(2);
+      tr.querySelector('[data-out="N"]').textContent = r.N.toString();
+      tr.querySelector('[data-out="SL"]').textContent = (r.SL*100).toFixed(0)+'%';
+      tr.querySelector('[data-out="ASA"]').textContent = isFinite(r.ASA)? r.ASA.toFixed(0):'—';
+      tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
+    });
+
+    $('#intervalGrid').style.display='block';
+    $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
+    $('#in_agent_hours').textContent = agentHours.toFixed(1);
+    $('#in_avg_agents').textContent = avgAgents.toFixed(1);
+    $('#in_peak_agents').textContent = peakAgents.toFixed(0);
+    $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
+    $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
+
+    if(!state.inbound.monthFTE) state.inbound.monthFTE={};
+    state.inbound.monthFTE[ym] = monthlyFTE;
+    saveState();
+  }
+  $('#btnInboundCalc').onclick=erlangRunAndStore;
+
+  $('#btnExportInbound').onclick=()=>{
+    if(!state.inbound.rows || !state.inbound.rows.length){ alert('Nothing to export yet. Build or import intervals first.'); return; }
+    const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date());
+    const ivl = Number($('#in_ivl').value||30);
+    const rows=state.inbound.rows;
+    const hdr=['interval','calls','load_erl','agents_N','SL_pct','ASA_sec','agents_with_shrinkage'];
+    const csv=[hdr.join(',')];
+    rows.forEach(r=>{
+      csv.push([r.label,r.calls,(r.a||0).toFixed(2),r.N||0,((r.SL||0)*100).toFixed(0),isFinite(r.ASA)?(r.ASA.toFixed(0)):'',r.Nadj||0].join(','));
+    });
+    const blob=new Blob([csv.join('\n')],{type:'text/csv'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`inbound_${ym}_${ivl}min.csv`;a.click();
+  };
+
+  /* Inbound – Staff */
+  function renderInStaff(){
+    const tbody=$('#inStaffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
+    const mix=[readNum($('#imix8')),readNum($('#imix10')),readNum($('#imix6')),readNum($('#imix4'))];
+    const sum=mix.reduce((a,b)=>a+b,0)||1;const frac=mix.map(x=>x/sum);
+    let start=$('#inStaffStart')?.value||$('#startMonth')?.value||ymKey(new Date()); start=normalizeYM(start); ensureMonth(start);
+    const idx=state.months.findIndex(m=>normalizeYM(m.ym)===start);
+    const view=state.months.slice(idx,idx+12);
+
+    view.forEach(m=>{
+      const ym=m.ym;
+      const need = (state.inbound.monthFTE && state.inbound.monthFTE[ym]) ? state.inbound.monthFTE[ym] : 0;
+      const staffed = (state.inbound.monthStaffed && typeof state.inbound.monthStaffed[ym]==='number') ? state.inbound.monthStaffed[ym] : 0;
+      const gap = Math.max(0, need - staffed);
+      const r8=(gap*frac[0]).toFixed(1),r10=(gap*frac[1]).toFixed(1),r6=(gap*frac[2]).toFixed(1),r4=(gap*frac[3]).toFixed(1);
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${m.name}</td>
+        <td>${need.toFixed(1)}</td>
+        <td><input data-instaff="${ym}" value="${staffed.toFixed(1)}" style="width:90px"></td>
+        <td>${gap.toFixed(1)}</td>
+        <td>${r8}</td><td>${r10}</td><td>${r6}</td><td>${r4}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('input[data-instaff]').forEach(inp=>{
+      inp.oninput=()=>{ const ym=inp.getAttribute('data-instaff'); const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0; if(!state.inbound.monthStaffed) state.inbound.monthStaffed={}; state.inbound.monthStaffed[ym]=v; saveState(); renderInStaff(); };
+    });
+  }
+
+  /* Diagnostics */
+  function diagItem(msg,fix){const d=document.createElement('div');d.className='diag-item';d.innerHTML=`<div><strong>${msg}</strong><div class="muted">${fix||''}</div></div>`;return d;}
+  function renderDiag(){
+    const div=$('#diagList'); if(!div) return; div.innerHTML='';
+    const g=state.globals;
+    if(g.compPerHr<=0)div.append(diagItem('Comp/hr is 0 — FTE Need would be infinite.','Set Comp/hr > 0 in Global Settings.'));
+    if(g.hoursPerDay<=0)div.append(diagItem('Hours/day is 0 — denominator invalid.','Set Hours/day > 0 in Global Settings.'));
+    if(g.shrink>=100)div.append(diagItem('Shrinkage ≥ 100% — effective hours ≤ 0.','Use a shrinkage < 100%. Typical: 25–40%.'));
+    state.months.forEach(m=>{
+      if(m.somPatients<0)div.append(diagItem(`${m.name}: SOM patients < 0`,'Enter a non-negative SOM patients value.'));
+      if((m.attritionPct??0)>50)div.append(diagItem(`${m.name}: Patient attrition % unusually high`,'Verify monthly patient churn; typical 1–10%.'));
+      if((m.fteAttritionPct??g.defFteAttr)>25)div.append(diagItem(`${m.name}: FTE attrition % high`,'Consider hiring buffer or retention actions.'));
+    });
+  }
+
+  /* Tabs & actions */
+  document.getElementById('tabs').addEventListener('click',e=>{
+    const t=e.target.closest('.tab'); if(!t) return;
+    $qa('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    ['overview','staff','inbound','instaff','exec','diag'].forEach(id=>$('#tab-'+id).style.display='none');
+    $('#tab-'+t.getAttribute('data-tab')).style.display='block';
+  });
+
+  $('#btnToggleGlobal').onclick=()=>{const el=$('#globalBody');const b=$('#btnToggleGlobal');const isOpen=el.style.display!=='none';el.style.display=isOpen?'none':'block';b.textContent=isOpen?'Expand':'Collapse';};
+
+  $('#btnExportSummary').onclick=()=>{
+    const mode=$('#exportMode').value;const lines=[];
+    const start=$('#startMonth')?.value||ymKey(new Date());
+    const idx=Math.max(0,state.months.findIndex(m=>normalizeYM(m.ym)>=start));
+    const win=Number(document.querySelector('.execwin button.active[data-execwin]')?.getAttribute('data-execwin')||1);
+    const view=state.months.slice(idx,idx+win);
+    if(mode==='outbound'||mode==='both'){lines.push('=== Outbound Summary ===');view.forEach(m=>{const mc=monthCalc(m);lines.push(`${m.name}: SOM ${m.somPatients}, Enroll ${m.enrollments}, Loss ${m.practiceLoss}, Attr ${(m.attritionPct??0)}% → EOM ${Math.round(mc.netPatients)}, SL ${mc.slPatients}, FTE Need ${mc.fteNeed.toFixed(1)}, SOM FTE ${(m.somFTE||0).toFixed(1)}, EOM FTE ${mc.eomFTE.toFixed(1)}`);});lines.push('');}
+    if(mode==='inbound'||mode==='both'){lines.push('=== Inbound Snapshot (monthly FTE by month) ===');view.forEach(m=>{const f=(state.inbound.monthFTE||{})[m.ym]||0;lines.push(`${m.name}: Inbound FTE ${f.toFixed(1)}`);});}
+    const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='executive-summary.txt';a.click();
+  };
+  $('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOverview();};
+  $('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
+  $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
+
+  /* Globals -> state (save on input; render on blur) */
+  ['g_comp','g_hours','g_shrink','g_sl','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
+    const el=$('#'+id); if(!el) return;
+    const write=()=>{ const g=state.globals;
+      g.compPerHr=readNum($('#g_comp')); g.hoursPerDay=readNum($('#g_hours')); g.shrink=readNum($('#g_shrink')); g.sl=readNum($('#g_sl'));
+      g.defFteAttr=readNum($('#g_fteattr')); g.ramp0=readNum($('#r_0')); g.ramp1=readNum($('#r_1')); g.ramp2=readNum($('#r_2'));
+    };
+    el.oninput=()=>{ write(); saveState(); };
+    el.onblur =()=>{ write(); renderAll(); };
+  });
+
+  /* Holidays */
+  $('#btnAddHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value);const dt=$('#h_date').value; if(!ym||!dt||!dt.startsWith(ym)){alert('Pick a month and a date within that month.');return} if(!state.holiday[ym])state.holiday[ym]=[]; if(!state.holiday[ym].includes(dt))state.holiday[ym].push(dt); updateHolidayList(); renderAll();};
+  $('#btnClearHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value); if(!ym)return; delete state.holiday[ym]; updateHolidayList(); renderAll();};
+  $('#h_month').oninput=updateHolidayList;
+  function updateHolidayList(){const ym=normalizeYM($('#h_month').value);const arr=state.holiday[ym]||[];$('#h_list').textContent=arr.length?`Holidays: ${arr.join(', ')}`:'No holidays in selected month.';}
+
+  /* Start month reactive */
+  $('#startMonth').addEventListener('change',()=>{
+    const v=normalizeYM($('#startMonth').value);
+    if($('#staffStart')) $('#staffStart').value=v;
+    if($('#inStaffStart')) $('#inStaffStart').value=v;
+    $('#in_month').value=v;
+    renderAll();
+  });
+  $('#horizon').addEventListener('change',renderAll);
+
+  /* Outbound CSV import + JSON export */
+  $('#btnImportCsv').onclick=()=>{
+    const f=$('#csvFile').files[0]; if(!f){alert('Choose a CSV file first.');return;}
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const lines=(r.result||'').split(/\r?\n/).filter(x=>x.trim());
+        const headers=lines.shift().split(',').map(h=>h.trim().toLowerCase());
+        const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
+        const required=['month(yyyy-mm)','som_patients','enrollments','attrition_pct','practice_loss','som_fte','new_hires'];
+        if(!required.every(h=>idx[h]!=null)){alert('Missing required headers.');return;}
+        lines.forEach(line=>{
+          const cols=line.split(',');
+          const ym=(cols[idx['month(yyyy-mm)']]||'').trim();
+          if(!/^\d{4}-\d{2}$/.test(ym)) return;
+          ensureMonth(ym);
+          const m=state.months.find(x=>x.ym===ym);
+          m.somPatients=+cols[idx['som_patients']]||0;
+          m.enrollments=+cols[idx['enrollments']]||0;
+          m.attritionPct=(cols[idx['attrition_pct']]===''?null:(+cols[idx['attrition_pct']]||0));
+          m.practiceLoss=+cols[idx['practice_loss']]||0;
+          m.somFTE=+cols[idx['som_fte']]||0;
+          m.newHires=+cols[idx['new_hires']]||0;
+        });
+        saveState(); renderAll(); alert('Outbound CSV imported.');
+      }catch(e){alert('Import failed: '+e.message);}
+    };
+    r.readAsText(f);
+  };
+  $('#btnExportJson').onclick=()=>{ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fte_state.json';a.click(); };
+
+  /* Init app (after auth) */
+  function initApp(){
+    state=loadState();
+    const s=readSession(); document.getElementById('userInfo').textContent = (s?.email? s.email+' · '+s.role : '(not signed in)');
+    const nowYM=ymKey(new Date());
+    $('#startMonth').value=normalizeYM(state.months[0]?.ym)||nowYM;
+    $('#staffStart').value=$('#startMonth').value;
+    $('#in_month').value=$('#startMonth').value;
+    $('#inStaffStart').value=$('#startMonth').value;
+    renderAll();
+  }
 </script>
 </body>
 </html>
