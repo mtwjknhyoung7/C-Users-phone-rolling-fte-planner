@@ -14,13 +14,13 @@
   .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
   .btn.small{padding:6px 8px;font-size:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.muted{color:var(--muted)}.ok{color:var(--ok)}.danger{color:var(--err)}
-  .wrap{display:grid;grid-template-columns:330px 1fr;gap:14px;min-height:100vh;padding:14px}
+  .wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;min-height:100vh;padding:14px}
   aside.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;height:calc(100vh - 110px);position:sticky;top:86px;overflow:auto}
   .sec{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
   .sec h3{margin:0 0 8px 0;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#334155}
   .input{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}.input label{font-size:12px;color:#64748b}
   .input input,.input select{height:38px;border:1px solid var(--border);border-radius:10px;padding:8px;width:100%}
-  .hint{font-size:11px;color:#94a3b8}
+  .hint{display:none!important} /* hide tips globally per request */
   main.content{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;min-height:calc(100vh - 110px)}
   .tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
   .tab{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<!-- Auth guard (local/session auth; keep your access.html/Firebase flow separate) -->
+<!-- Auth guard -->
 <script>
 (function () {
   const KEY='fte-session';
@@ -65,7 +65,7 @@
   <div class="row">
     <div class="brand">Rolling FTE Planner</div>
     <span class="chip" id="horizonChip"></span>
-    <span class="chip">build 2025-10-09-1099a</span>
+    <span class="chip">build 2025-10-10b</span>
   </div>
   <div class="row"><span class="muted" id="userInfo"></span><button class="btn small" id="btnSignOut">Sign out</button></div>
 </header>
@@ -96,33 +96,12 @@
     </div>
 
     <div class="sec">
-      <h3>1099 Contractors</h3>
-      <div class="row">
-        <div class="input" style="flex:1"><label>Auto recommend 1099 (on/off)</label>
-          <select id="g_1099_auto"><option value="true" selected>On</option><option value="false">Off</option></select>
-        </div>
-        <div class="input" style="flex:1"><label>Auto 1099 share of gap %</label><input id="g_1099_share" type="text" inputmode="decimal" placeholder="0 (none)"></div>
-      </div>
-      <div class="row">
-        <div class="input" style="flex:1"><label>1099 cap as % of monthly need</label><input id="g_1099_cap" type="text" inputmode="decimal" placeholder="100"></div>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <div class="input" style="width:110px"><label>1099 % 8h</label><input id="cmix8" type="text" inputmode="decimal" placeholder="60"></div>
-        <div class="input" style="width:110px"><label>1099 % 10h</label><input id="cmix10" type="text" inputmode="decimal" placeholder="20"></div>
-        <div class="input" style="width:110px"><label>1099 % 6h</label><input id="cmix6" type="text" inputmode="decimal" placeholder="10"></div>
-        <div class="input" style="width:110px"><label>1099 % 4h</label><input id="cmix4" type="text" inputmode="decimal" placeholder="10"></div>
-      </div>
-      <div class="hint">Auto logic: 1099 Planned = min( gap × share%, cap% × FTE Need ). You can turn Auto off and set per-month values manually.</div>
-    </div>
-
-    <div class="sec">
       <h3>Tenure Ramp (Productivity)</h3>
       <div class="row">
         <div class="input" style="flex:1"><label>0–30 days %</label><input id="r_0" type="text" inputmode="decimal" placeholder="5"></div>
         <div class="input" style="flex:1"><label>31–60 days %</label><input id="r_1" type="text" inputmode="decimal" placeholder="50"></div>
         <div class="input" style="flex:1"><label>90+ days %</label><input id="r_2" type="text" inputmode="decimal" placeholder="100"></div>
       </div>
-      <div class="hint">Ramp applies on Outbound – Staff as “Effective Supply.”</div>
     </div>
 
     <div class="sec">
@@ -139,7 +118,7 @@
       <h3>Data I/O (Superadmin)</h3>
       <div class="row"><input id="csvFile" type="file" accept=".csv"/><button class="btn small" id="btnImportCsv">Import Outbound CSV</button></div>
       <div class="row"><button class="btn small" id="btnExportJson">Export JSON</button></div>
-      <div class="hint">CSV headers: month(YYYY-MM), som_patients, enrollments, attrition_pct, practice_loss, som_fte, new_hires, planned1099(optional)</div>
+      <div class="hint">CSV headers: month(YYYY-MM), som_patients, enrollments, attrition_pct, practice_loss, som_fte, new_hires</div>
     </div>
   </aside>
 
@@ -167,39 +146,26 @@
 
     <!-- Outbound – Staff -->
     <section id="tab-staff" style="display:none">
-      <div class="row" style="margin-bottom:8px;align-items:flex-end">
+      <div class="row" style="margin-bottom:8px">
         <div class="input" style="width:220px"><label>View starting month</label><input id="staffStart" type="month"></div>
         <button class="btn small" id="btnStaffGo">Go</button>
-
         <div class="row" style="margin-left:auto">
-          <div class="input" style="width:100px"><label>W2 % 8h</label><input id="mix8" type="text" inputmode="decimal" placeholder="60"></div>
-          <div class="input" style="width:100px"><label>W2 % 10h</label><input id="mix10" type="text" inputmode="decimal" placeholder="20"></div>
-          <div class="input" style="width:100px"><label>W2 % 6h</label><input id="mix6" type="text" inputmode="decimal" placeholder="10"></div>
-          <div class="input" style="width:100px"><label>W2 % 4h</label><input id="mix4" type="text" inputmode="decimal" placeholder="10"></div>
+          <div class="input" style="width:120px"><label>% 8h</label><input id="mix8" type="text" inputmode="decimal" placeholder="60"></div>
+          <div class="input" style="width:120px"><label>% 10h</label><input id="mix10" type="text" inputmode="decimal" placeholder="20"></div>
+          <div class="input" style="width:120px"><label>% 6h PT</label><input id="mix6" type="text" inputmode="decimal" placeholder="10"></div>
+          <div class="input" style="width:120px"><label>% 4h PT</label><input id="mix4" type="text" inputmode="decimal" placeholder="10"></div>
         </div>
       </div>
-
       <table id="staffTbl">
         <thead>
           <tr>
-            <th>Month</th>
-            <th>FTE Need</th>
-            <th>Staffed (SOM FTE)</th>
-            <th>Effective Supply (ramp)</th>
-            <th>Gap vs Effective</th>
-            <th>1099 Planned (FTE)</th>
-            <th>W2 Gap after 1099</th>
-            <th>W2 8h</th><th>W2 10h</th><th>W2 6h</th><th>W2 4h</th>
-            <th>1099 8h</th><th>1099 10h</th><th>1099 6h</th><th>1099 4h</th>
+            <th>Month</th><th>FTE Need</th>
+            <th>Staffed (SOM FTE)</th><th>Effective Supply (ramp)</th>
+            <th>Gap vs Effective</th><th>8h</th><th>10h</th><th>6h PT</th><th>4h PT</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
-
-      <div class="hint" style="margin-top:8px">
-        Effective Supply = SOM FTE − (prev1 new hires × (1−r1)) − (prev2 new hires × (1−r1)) + (this-month new hires × r0).
-        1099 Planned (Auto) = min( Gap × share%, cap% × Need ). Turn Auto off to edit manually per month.
-      </div>
     </section>
 
     <!-- Inbound -->
@@ -215,7 +181,6 @@
           </div>
           <div class="input" style="width:150px"><label>Shrinkage % (override)</label><input id="in_shrink" type="text" inputmode="decimal" placeholder="(global)"></div>
         </div>
-
         <div class="row">
           <button class="btn small" id="btnBuildIntervals">Build empty day</button>
           <label class="btn small" style="display:inline-flex;gap:8px;align-items:center">
@@ -226,12 +191,6 @@
           <button class="btn small" id="btnExportInbound">Export</button>
         </div>
       </div>
-
-      <div class="hint" style="margin-bottom:6px">
-        CSV columns accepted: <b>datetime,calls</b> (optional <b>aht_sec,target_asa_sec</b>). We bin by interval-of-day.
-        Service level: <code>SL = 1 - ErlangC × exp(-(N - a) × T / AHT)</code>, with <code>a = calls*AHT / interval_seconds</code>.
-      </div>
-
       <div class="gridwrap" id="intervalGrid" style="display:none">
         <table>
           <thead><tr><th>Interval</th><th>Calls</th><th>Load (erl)</th><th>Agents N</th><th>SL %</th><th>ASA (s)</th><th>Agents w/ Shrink</th></tr></thead>
@@ -271,7 +230,6 @@
         <thead><tr><th>Month</th><th>Inbound FTE Need</th><th>Inbound Staffed (editable)</th><th>Gap</th><th>8h</th><th>10h</th><th>6h PT</th><th>4h PT</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="hint" style="margin-top:8px">Inbound need comes from the Inbound tab’s monthly computation. Enter staffed inbound FTE per month here.</div>
     </section>
 
     <!-- Executive Summary -->
@@ -314,7 +272,49 @@ const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
 document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
 document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
 
-/* Month helpers */
+/* Focus-preserving render wrapper + debounce */
+let renderTimer=null;
+function preserveFocusInfo(){
+  const ae=document.activeElement;
+  if(!ae) return null;
+  const info={
+    id: ae.id || null,
+    selStart: (ae.selectionStart!=null? ae.selectionStart : null),
+    selEnd: (ae.selectionEnd!=null? ae.selectionEnd : null),
+    datasetF: ae.getAttribute('data-f')||null,
+    monthYM: null
+  };
+  const row = ae.closest?.('.month-row');
+  if(row){ info.monthYM = row.getAttribute('data-ym'); }
+  return info;
+}
+function restoreFocus(info){
+  if(!info) return;
+  let target=null;
+  if(info.monthYM && info.datasetF){
+    target = document.querySelector(`.month-row[data-ym="${info.monthYM}"] [data-f="${info.datasetF}"]`);
+  }
+  if(!target && info.id){
+    target = document.getElementById(info.id);
+  }
+  if(target){
+    target.focus();
+    if(info.selStart!=null && info.selEnd!=null && target.setSelectionRange){
+      try{ target.setSelectionRange(info.selStart, info.selEnd); }catch{}
+    }
+  }
+}
+function withFocusPreserved(fn){
+  const info = preserveFocusInfo();
+  fn();
+  restoreFocus(info);
+}
+function scheduleRender(){
+  if(renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(()=> withFocusPreserved(renderAll), 250);
+}
+
+/* Month helpers (timezone-safe) */
 function normalizeYM(s){
   if(!s)return s;
   const m1=/^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
@@ -322,10 +322,19 @@ function normalizeYM(s){
   return s;
 }
 function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-function ymToDate(ym){const n=normalizeYM(ym); if(!n) return new Date(); const [Y,M]=n.split('-').map(Number); return new Date(Y, (M||1)-1, 1);}
+function ymToDate(ym){
+  const n=normalizeYM(ym); if(!n) return new Date();
+  const [Y,M]=n.split('-').map(Number);
+  return new Date(Y, (M||1)-1, 1);
+}
 function dedupAndSortMonths(arr){
   const map=new Map();
-  (arr||[]).forEach(m=>{const ym=normalizeYM(m?.ym||''); if(!ym) return; const d=ymToDate(ym); const prev=map.get(ym)||{}; map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});});
+  (arr||[]).forEach(m=>{
+    const ym=normalizeYM(m?.ym||''); if(!ym) return;
+    const d=ymToDate(ym);
+    const prev=map.get(ym)||{};
+    map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});
+  });
   return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));
 }
 
@@ -333,15 +342,9 @@ function dedupAndSortMonths(arr){
 const STATE_KEY='fte-state-v2'; let state=null;
 function defaultState(){
   const now=new Date();const start=new Date(now.getFullYear(),now.getMonth(),1);
-  const months=buildMonths(start,12).map(m=>({ym:m.ym,name:m.name,somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,planned1099:0,autoCarryFTE:true,autoSOM:false,open:false}));
+  const months=buildMonths(start,12).map(m=>({ym:m.ym,name:m.name,somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}));
   return{
-    globals:{
-      compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,
-      defAttr:3.5,defFteAttr:3.5,
-      ramp0:5,ramp1:50,ramp2:100,
-      cAuto:true,cShare:0,cCap:100, // 1099
-      cmix8:60,cmix10:20,cmix6:10,cmix4:10
-    },
+    globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defAttr:3.5,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
     holiday:{},
     months,
     inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}
@@ -351,17 +354,9 @@ function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
   if(g.defFteAttr==null) g.defFteAttr=g.defAttr;
-  if(g.cAuto==null) g.cAuto=d.globals.cAuto;
-  if(g.cShare==null) g.cShare=d.globals.cShare;
-  if(g.cCap==null) g.cCap=d.globals.cCap;
-  if(g.cmix8==null) g.cmix8=d.globals.cmix8;
-  if(g.cmix10==null) g.cmix10=d.globals.cmix10;
-  if(g.cmix6==null) g.cmix6=d.globals.cmix6;
-  if(g.cmix4==null) g.cmix4=d.globals.cmix4;
-
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
-  months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,planned1099:0,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
+  months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
   if(!months.length) months=d.months;
   const inbound={...d.inbound,...(raw?.inbound||{})};
   inbound.monthFTE=inbound.monthFTE||{};
@@ -371,20 +366,20 @@ function repairState(raw){
 function loadState(){try{const raw=JSON.parse(localStorage.getItem(STATE_KEY)||'null');if(!raw)return defaultState();return repairState(raw);}catch{return defaultState();}}
 function saveState(){try{localStorage.setItem(STATE_KEY,JSON.stringify(state));}catch{}}
 
-/* Calendar helpers */
+/* Calendar */
 function buildMonths(startDate,count){const arr=[];for(let i=0;i<count;i++){const d=new Date(startDate.getFullYear(),startDate.getMonth()+i,1);const ym=ymKey(d);const name=d.toLocaleString(undefined,{month:'long',year:'numeric'});arr.push({ym,name});}return arr;}
 function ensureMonth(ym){
   ym=normalizeYM(ym); if(!ym) return;
   const exists=state.months.find(m=>m.ym===ym);
   if(!exists){
     const d=ymToDate(ym);
-    state.months.push({ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,planned1099:0,autoCarryFTE:true,autoSOM:false,open:false});
+    state.months.push({ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'}),somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false});
     state.months=dedupAndSortMonths(state.months);
   }
 }
 function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1)){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
 
-/* Outbound calc (WFM) */
+/* Outbound calc */
 function monthCalc(m){
   const g=state.globals,ym=normalizeYM(m.ym);
   const holidays=new Set((state.holiday[ym]||[]));
@@ -423,7 +418,7 @@ function serviceLevel(N,a,AHT,T){ if(N<=0) return 0; if(a===0) return 1; if(a>=N
 function asa(N,a,AHT){ if(N<=a||N<=0) return Infinity; const ec=erlangC(N,a); return (ec*AHT)/(N-a); }
 function findAgentsForSL(a,AHT,T,targetSL){ let N=Math.max(1,Math.ceil(a)+1); for(let i=0;i<200;i++){ if(serviceLevel(N,a,AHT,T)>=targetSL) return N; N++; } return N; }
 
-/* Renderers (master) */
+/* Renderers */
 function renderAll(){ saveState(); renderSidebar(); renderOverview(); renderExec(); renderStaffing(); renderInStaff(); renderDiag(); const hz=$('#horizon'); if(hz) $('#horizonChip').textContent=`${hz.value}-month horizon`; }
 function renderSidebar(){
   const g=state.globals;
@@ -431,11 +426,6 @@ function renderSidebar(){
   setNum($('#g_sl'),g.sl,0);setNum($('#g_attr'),g.defAttr,2);setNum($('#g_fteattr'),g.defFteAttr,2);
   setNum($('#r_0'),g.ramp0,1);setNum($('#r_1'),g.ramp1,1);setNum($('#r_2'),g.ramp2,0);
   $('#ioSec').style.display=(session.role==='superadmin')?'block':'none';
-  // 1099
-  $('#g_1099_auto').value = g.cAuto ? 'true' : 'false';
-  setNum($('#g_1099_share'), g.cShare, 1);
-  setNum($('#g_1099_cap'), g.cCap, 0);
-  setNum($('#cmix8'), g.cmix8, 0); setNum($('#cmix10'), g.cmix10, 0); setNum($('#cmix6'), g.cmix6, 0); setNum($('#cmix4'), g.cmix4, 0);
 }
 
 function renderOverview(){
@@ -444,22 +434,25 @@ function renderOverview(){
   const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
   const horizon = Number($('#horizon')?.value||12);
 
+  // Build exact view span
   const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
 
+  // Auto-carry toggles
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
     if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
   }
 
+  // Render only span
   span.forEach(ym=>{
     const m=state.months.find(x=>normalizeYM(x.ym)===ym);
     if(!m) return;
     const mc=monthCalc(m);
-    const row=document.createElement('div');row.className='month-row'+(m.open?' open':'');
+    const row=document.createElement('div');row.className='month-row'+(m.open?' open':''); row.setAttribute('data-ym', m.ym);
     row.innerHTML=`
       <div class="month-head">
         <div class="row"><div class="m-title">${m.name}</div><span class="muted">Workdays: ${mc.workdays} • Hours: ${mc.hours}</span></div>
@@ -467,15 +460,15 @@ function renderOverview(){
       </div>
       <div class="kpis">
         <div class="k"><label>Start-of-Month Patients</label><input data-f="somPatients" maxlength="6" placeholder="0" value="${m.somPatients||''}"></div>
-        <div class="k"><label>SL Patients (${state.globals.sl}% of Net)</label><div class="val">${mc.slPatients.toLocaleString()}</div></div>
-        <div class="k"><label>FTE Need</label><div class="val">${mc.fteNeed.toFixed(1)}</div></div>
-        <div class="k"><label>EOM Patients (Net)</label><div class="val">${mc.netPatients.toLocaleString()}</div></div>
+        <div class="k"><label>SL Patients (${state.globals.sl}% of Net)</label><div class="val" data-val="slPatients">${mc.slPatients.toLocaleString()}</div></div>
+        <div class="k"><label>FTE Need</label><div class="val" data-val="fteNeed">${mc.fteNeed.toFixed(1)}</div></div>
+        <div class="k"><label>EOM Patients (Net)</label><div class="val" data-val="netPatients">${mc.netPatients.toLocaleString()}</div></div>
         <div class="k"><label>SOM FTE</label><input data-f="somFTE" placeholder="0.0" value="${(m.somFTE||'')}"></div>
-        <div class="k"><label>EOM FTE</label><div class="val">${mc.eomFTE.toFixed(1)}</div></div>
-        <div class="k"><label>8h Schedules</label><div class="val">${schedBreak(mc.fteNeed,8)}</div></div>
-        <div class="k"><label>10h Schedules</label><div class="val">${schedBreak(mc.fteNeed,10)}</div></div>
-        <div class="k"><label>6h PT</label><div class="val">${schedBreak(mc.fteNeed,6)}</div></div>
-        <div class="k"><label>4h PT</label><div class="val">${schedBreak(mc.fteNeed,4)}</div></div>
+        <div class="k"><label>EOM FTE</label><div class="val" data-val="eomFTE">${mc.eomFTE.toFixed(1)}</div></div>
+        <div class="k"><label>8h Schedules</label><div class="val" data-val="sch8">${schedBreak(mc.fteNeed,8)}</div></div>
+        <div class="k"><label>10h Schedules</label><div class="val" data-val="sch10">${schedBreak(mc.fteNeed,10)}</div></div>
+        <div class="k"><label>6h PT</label><div class="val" data-val="sch6">${schedBreak(mc.fteNeed,6)}</div></div>
+        <div class="k"><label>4h PT</label><div class="val" data-val="sch4">${schedBreak(mc.fteNeed,4)}</div></div>
         <div class="k"><label>Auto-carry SOM FTE → next</label><select data-f="autoCarryFTE"><option value="true" ${m.autoCarryFTE?'selected':''}>On</option><option value="false" ${!m.autoCarryFTE?'selected':''}>Off</option></select></div>
         <div class="k"><label>Auto-SOM Patients (prev EOM)</label><select data-f="autoSOM"><option value="false" ${!m.autoSOM?'selected':''}>Off</option><option value="true" ${m.autoSOM?'selected':''}>On</option></select></div>
       </div>
@@ -487,25 +480,50 @@ function renderOverview(){
           <div class="input" style="width:160px"><label>New Hires (FTE)</label><input data-f="newHires" placeholder="0" value="${m.newHires||''}"></div>
           <div class="input" style="width:170px"><label>FTE Attrition % (override)</label><input data-f="fteAttritionPct" placeholder="(global)" value="${m.fteAttritionPct==null?'':m.fteAttritionPct}"></div>
         </div>
-        <div class="hint">Net = SOM + Enrollments − SOM×Attr% − Practice Loss. SL Patients = Net × ${state.globals.sl}%.</div>
       </div>`;
-    row.querySelector('[data-act="toggle"]').onclick=()=>{m.open=!m.open;renderOverview();};
+    row.querySelector('[data-act="toggle"]').onclick=()=>{m.open=!m.open;withFocusPreserved(renderOverview);};
+
+    // Light-updaters: on input, update state + KPIs in-place; full render on blur
     row.querySelectorAll('input[data-f],select[data-f]').forEach(inp=>{
-      inp.oninput=()=>{
-        const f=inp.getAttribute('data-f');
-        let v=inp.tagName==='SELECT'?inp.value:(inp.value||'').replace(/[^0-9.\-]/g,'');
-        if(['somPatients','enrollments','practiceLoss','somFTE','newHires'].includes(f)){m[f]=v===''?0:parseFloat(v);}
-        else if(['attritionPct','fteAttritionPct'].includes(f)){m[f]=v===''?null:parseFloat(v);}
-        else if(f==='autoCarryFTE'||f==='autoSOM'){m[f]=(v==='true');}
-        renderAll();
+      const f=inp.getAttribute('data-f');
+      const updateStateValue=()=>{
+        let v=(inp.tagName==='SELECT')? inp.value : (inp.value||'').replace(/[^0-9.\-]/g,'');
+        if(['somPatients','enrollments','practiceLoss','somFTE','newHires'].includes(f)){ m[f]=v===''?0:parseFloat(v); }
+        else if(['attritionPct','fteAttritionPct'].includes(f)){ m[f]=v===''?null:parseFloat(v); }
+        else if(f==='autoCarryFTE'||f==='autoSOM'){ m[f]=(v==='true'); }
       };
+      const refreshKPIs=()=>{
+        const c=monthCalc(m);
+        row.querySelector('[data-val="slPatients"]').textContent = c.slPatients.toLocaleString();
+        row.querySelector('[data-val="fteNeed"]').textContent = c.fteNeed.toFixed(1);
+        row.querySelector('[data-val="netPatients"]').textContent = c.netPatients.toLocaleString();
+        row.querySelector('[data-val="eomFTE"]').textContent = c.eomFTE.toFixed(1);
+        row.querySelector('[data-val="sch8"]').textContent = schedBreak(c.fteNeed,8);
+        row.querySelector('[data-val="sch10"]').textContent = schedBreak(c.fteNeed,10);
+        row.querySelector('[data-val="sch6"]').textContent = schedBreak(c.fteNeed,6);
+        row.querySelector('[data-val="sch4"]').textContent = schedBreak(c.fteNeed,4);
+      };
+      inp.addEventListener('input', ()=>{
+        updateStateValue();
+        saveState();
+        refreshKPIs();       // instant feedback without rebuild
+        scheduleRender();    // defer heavier cross-tab updates
+      });
+      inp.addEventListener('change', ()=>{ // dropdowns & manual edits
+        updateStateValue(); saveState();
+        withFocusPreserved(renderAll);
+      });
+      inp.addEventListener('blur', ()=>{    // full consistency when you leave the field
+        updateStateValue(); saveState();
+        withFocusPreserved(renderAll);
+      });
     });
     cont.appendChild(row);
   });
 }
 function schedBreak(fte,hours){const heads=(fte*173.33)/(hours*21.666);return(!isFinite(heads)||heads<=0)?'0.0':heads.toFixed(1);}
 
-/* Exec Summary */
+/* Exec */
 let netChart,fteChart;
 function renderExec(){
   const group=document.querySelector('.execwin');
@@ -518,13 +536,9 @@ function renderExec(){
   $('#execRange').textContent=`${months[0].name} → ${months[months.length-1].name}`;
   const cards=$('#execCards');cards.innerHTML='';
   const labels=[],nets=[],needs=[];
-  months.forEach((m,i)=>{
-    const idx = state.months.findIndex(x=>x.ym===m.ym);
+  months.forEach(m=>{
     const mc=monthCalc(m);labels.push(m.name);nets.push(mc.netPatients);needs.push(mc.fteNeed);
-    const effSupply = effectiveSupplyForMonth(idx);
-    const gap = Math.max(0, mc.fteNeed - effSupply);
-    const planned1099 = plan1099(idx, gap, mc.fteNeed);
-    const w2gap = Math.max(0, gap - planned1099);
+    const gap=Math.max(0,mc.fteNeed-(m.somFTE||0));
     const div=document.createElement('div');div.className='card';
     div.innerHTML=`<div class="row" style="justify-content:space-between"><strong>${m.name}</strong><span class="chip">WD ${mc.workdays}</span></div>
       <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:8px">
@@ -536,9 +550,8 @@ function renderExec(){
       <div class="row"><span class="muted">EOM Patients (Net)</span><span style="margin-left:auto;font-weight:700">${mc.netPatients.toLocaleString()}</span></div>
       <div class="row"><span class="muted">SL Patients</span><span style="margin-left:auto;font-weight:700">${mc.slPatients.toLocaleString()}</span></div>
       <div class="row"><span class="muted">FTE Need</span><span style="margin-left:auto;font-weight:700">${mc.fteNeed.toFixed(1)}</span></div>
-      <div class="row"><span class="muted">Eff. Supply</span><span style="margin-left:auto">${effSupply.toFixed(1)}</span></div>
-      <div class="row"><span class="muted">1099 Planned</span><span style="margin-left:auto">${planned1099.toFixed(1)}</span></div>
-      <div class="row"><span class="muted ${w2gap>0?'danger':'ok'}">W2 Gap (after 1099)</span><span style="margin-left:auto">${w2gap.toFixed(1)}</span></div></div>`;
+      <div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto">${(m.somFTE||0).toFixed(1)}</span></div>
+      <div class="row"><span class="muted ${gap>0?'danger':'ok'}">Hiring Gap (vs SOM)</span><span style="margin-left:auto">${gap.toFixed(1)}</span></div></div>`;
     cards.appendChild(div);
   });
   const nc=document.getElementById('chartNet').getContext('2d');
@@ -548,80 +561,32 @@ function renderExec(){
   fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});
 }
 
-/* 1099 Planner */
-function plan1099(globalIdx, gap, need){
-  const g=state.globals;
-  const m=state.months[globalIdx];
-  let planned = m.planned1099||0;
-  if(g.cAuto){
-    const share = Math.max(0, g.cShare)/100;
-    const cap = Math.max(0, g.cCap)/100;
-    const autoVal = Math.min(gap * share, need * cap);
-    planned = Math.max(0, Math.min(autoVal, gap));
-  }
-  return planned;
-}
-
-/* Outbound – Staff with 1099 */
+/* Outbound – Staff */
 function renderStaffing(){
   const tbody=$('#staffTbl tbody'); if(!tbody) return; tbody.innerHTML='';
   const mix=[readNum($('#mix8')),readNum($('#mix10')),readNum($('#mix6')),readNum($('#mix4'))];
-  const sum=mix.reduce((a,b)=>a+b,0)||1;const w2f=mix.map(x=>x/sum);
-
-  // 1099 mix
-  const cmix=[readNum($('#cmix8')),readNum($('#cmix10')),readNum($('#cmix6')),readNum($('#cmix4'))];
-  const csum=cmix.reduce((a,b)=>a+b,0)||1;const cf=cmix.map(x=>x/csum);
-
-  let start=$('#staffStart')?.value||$('#startMonth')?.value||ymKey(new Date());
-  start=normalizeYM(start); ensureMonth(start);
-  const idxStart=state.months.findIndex(m=>normalizeYM(m.ym)===start);
-  const view=state.months.slice(idxStart,idxStart+12);
-
+  const sum=mix.reduce((a,b)=>a+b,0)||1;const frac=mix.map(x=>x/sum);
+  let start=$('#staffStart')?.value||$('#startMonth')?.value||ymKey(new Date()); start=normalizeYM(start); ensureMonth(start);
+  const idx=state.months.findIndex(m=>normalizeYM(m.ym)===start);
+  const view=state.months.slice(idx,idx+12);
   view.forEach((m,i)=>{
     const mc=monthCalc(m);
-    const globalIdx = idxStart+i;
+    const globalIdx = idx+i;
     const effSupply = effectiveSupplyForMonth(globalIdx);
     const gapEff=Math.max(0,mc.fteNeed-effSupply);
-
-    // 1099 planned (auto or manual)
-    const autoOn = state.globals.cAuto;
-    const planned1099 = plan1099(globalIdx, gapEff, mc.fteNeed);
-    if(autoOn){ m._display1099 = planned1099; } else { m._display1099 = m.planned1099||0; }
-
-    const w2Gap = Math.max(0, gapEff - (autoOn?planned1099:(m.planned1099||0)));
-
-    // schedule splits
-    const w2_8=(w2Gap*w2f[0]).toFixed(1), w2_10=(w2Gap*w2f[1]).toFixed(1), w2_6=(w2Gap*w2f[2]).toFixed(1), w2_4=(w2Gap*w2f[3]).toFixed(1);
-    const c_8=( (autoOn?planned1099:(m.planned1099||0)) * cf[0]).toFixed(1),
-          c_10=( (autoOn?planned1099:(m.planned1099||0)) * cf[1]).toFixed(1),
-          c_6=( (autoOn?planned1099:(m.planned1099||0)) * cf[2]).toFixed(1),
-          c_4=( (autoOn?planned1099:(m.planned1099||0)) * cf[3]).toFixed(1);
-
+    const r8=(gapEff*frac[0]).toFixed(1),r10=(gapEff*frac[1]).toFixed(1),r6=(gapEff*frac[2]).toFixed(1),r4=(gapEff*frac[3]).toFixed(1);
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${m.name}</td>
       <td>${mc.fteNeed.toFixed(1)}</td>
       <td>${(m.somFTE||0).toFixed(1)}</td>
       <td>${effSupply.toFixed(1)}</td>
       <td>${gapEff.toFixed(1)}</td>
-      <td>${autoOn?`<span class="muted">${(planned1099).toFixed(1)} (auto)</span>`:`<input data-1099="${m.ym}" value="${(m.planned1099||0).toFixed(1)}" style="width:90px">`}</td>
-      <td>${w2Gap.toFixed(1)}</td>
-      <td>${w2_8}</td><td>${w2_10}</td><td>${w2_6}</td><td>${w2_4}</td>
-      <td>${c_8}</td><td>${c_10}</td><td>${c_6}</td><td>${c_4}</td>`;
+      <td>${r8}</td><td>${r10}</td><td>${r6}</td><td>${r4}</td>`;
     tbody.appendChild(tr);
-  });
-
-  // manual edit handlers (when Auto off)
-  tbody.querySelectorAll('input[data-1099]').forEach(inp=>{
-    inp.oninput=()=>{
-      const ym=inp.getAttribute('data-1099');
-      const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      const m=state.months.find(x=>x.ym===ym);
-      if(m){ m.planned1099=Math.max(0,v); saveState(); renderStaffing(); }
-    };
   });
 }
 
-/* Inbound interval grid + CSV import/export (unchanged core) */
+/* Inbound interval grid + CSV import/export */
 function ensureInboundGrid(){
   const grid=$('#intervalGrid'); const body=$('#intervalBody');
   grid.style.display='block'; body.innerHTML='';
@@ -649,10 +614,8 @@ function ensureInboundGrid(){
     body.appendChild(tr);
   });
   body.querySelectorAll('input[data-in="calls"]').forEach(inp=>{
-    inp.oninput=()=>{
-      const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      state.inbound.rows[i].calls = val; saveState();
-    };
+    inp.oninput=()=>{ const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0; state.inbound.rows[i].calls = val; saveState(); scheduleRender(); };
+    inp.onblur = ()=>{ scheduleRender(); };
   });
 }
 $('#btnBuildIntervals').onclick=ensureInboundGrid;
@@ -685,6 +648,7 @@ $('#btnImportInbound').onclick=()=>{
       const i=Number(inp.getAttribute('data-idx')); inp.value=state.inbound.rows[i].calls;
     });
     alert(`Loaded ${days} day(s) into ${slots} intervals.`);
+    scheduleRender();
   };
   r.readAsText(file);
 };
@@ -719,6 +683,7 @@ function erlangRunAndStore(){
   const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
   const monthlyFTE = dailyFTE * wd;
 
+  // write table
   const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
   body.querySelectorAll('tr').forEach((tr,i)=>{
     const r=rows[i];
@@ -729,6 +694,7 @@ function erlangRunAndStore(){
     tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
   });
 
+  // summary
   $('#intervalGrid').style.display='block';
   $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
   $('#in_agent_hours').textContent = agentHours.toFixed(1);
@@ -737,6 +703,7 @@ function erlangRunAndStore(){
   $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
   $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
 
+  // store by month for Inbound – Staff tab
   if(!state.inbound.monthFTE) state.inbound.monthFTE={};
   state.inbound.monthFTE[ym] = monthlyFTE;
   saveState();
@@ -782,12 +749,8 @@ function renderInStaff(){
   });
 
   tbody.querySelectorAll('input[data-instaff]').forEach(inp=>{
-    inp.oninput=()=>{
-      const ym=inp.getAttribute('data-instaff');
-      const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      if(!state.inbound.monthStaffed) state.inbound.monthStaffed={};
-      state.inbound.monthStaffed[ym]=v; saveState(); renderInStaff();
-    };
+    inp.oninput=()=>{ const ym=inp.getAttribute('data-instaff'); const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0; if(!state.inbound.monthStaffed) state.inbound.monthStaffed={}; state.inbound.monthStaffed[ym]=v; saveState(); scheduleRender(); };
+    inp.onblur = ()=>{ withFocusPreserved(renderInStaff); };
   });
 }
 
@@ -803,9 +766,6 @@ function renderDiag(){
     if((m.attritionPct??g.defAttr)>50)div.append(diagItem(`${m.name}: Patient attrition % unusually high`,'Verify monthly patient churn; typical 1–10%.'));
     if((m.fteAttritionPct??g.defFteAttr)>25)div.append(diagItem(`${m.name}: FTE attrition % high`,'Consider hiring buffer or retention actions.'));
   });
-  if(g.cAuto && (g.cShare<=0 || g.cCap<=0)){
-    div.append(diagItem('1099 Auto is ON but share% or cap% is 0.','Increase Auto 1099 share% and cap% or turn Auto off.'));
-  }
 }
 function diagItem(msg,fix){const d=document.createElement('div');d.className='diag-item';d.innerHTML=`<div><strong>${msg}</strong><div class="muted">${fix||''}</div></div>`;return d;}
 
@@ -826,29 +786,20 @@ $('#btnExportSummary').onclick=()=>{
   const idx=Math.max(0,state.months.findIndex(m=>normalizeYM(m.ym)>=start));
   const win=Number(document.querySelector('.execwin button.active[data-execwin]')?.getAttribute('data-execwin')||1);
   const view=state.months.slice(idx,idx+win);
-  if(mode==='outbound'||mode==='both'){
-    lines.push('=== Outbound Summary ===');
-    view.forEach((m,i)=>{
-      const gIdx = state.months.findIndex(x=>x.ym===m.ym);
-      const mc=monthCalc(m); const eff=effectiveSupplyForMonth(gIdx);
-      const gap=Math.max(0,mc.fteNeed-eff);
-      const p1099=plan1099(gIdx,gap,mc.fteNeed);
-      const w2gap = Math.max(0, gap - p1099);
-      lines.push(`${m.name}: Need ${mc.fteNeed.toFixed(1)} | EffSupply ${eff.toFixed(1)} | 1099 ${p1099.toFixed(1)} | W2 Gap ${w2gap.toFixed(1)} | SOMFTE ${(m.somFTE||0).toFixed(1)} | EOMFTE ${mc.eomFTE.toFixed(1)}`);
-    });
-    lines.push('');
-  }
+  if(mode==='outbound'||mode==='both'){lines.push('=== Outbound Summary ===');view.forEach(m=>{const mc=monthCalc(m);lines.push(`${m.name}: SOM ${m.somPatients}, Enroll ${m.enrollments}, Loss ${m.practiceLoss}, Attr ${(m.attritionPct??state.globals.defAttr)}% → EOM ${mc.netPatients}, SL ${mc.slPatients}, FTE Need ${mc.fteNeed.toFixed(1)}, SOM FTE ${(m.somFTE||0).toFixed(1)}, EOM FTE ${mc.eomFTE.toFixed(1)}`);});lines.push('');}
   if(mode==='inbound'||mode==='both'){lines.push('=== Inbound Snapshot (monthly FTE by month) ===');view.forEach(m=>{const f=(state.inbound.monthFTE||{})[m.ym]||0;lines.push(`${m.name}: Inbound FTE ${f.toFixed(1)}`);});}
   const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='executive-summary.txt';a.click();
 };
-$('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOverview();};
-$('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
-$('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
+$('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);withFocusPreserved(renderOverview);};
+$('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);withFocusPreserved(renderOverview);};
+$('#btnRebuild').onclick=()=>withFocusPreserved(renderAll);
+$('#btnStaffGo').onclick=()=>withFocusPreserved(renderStaffing);
+$('#btnInStaffGo').onclick=()=>withFocusPreserved(renderInStaff);
 
-/* Global inputs -> state */
-['g_comp','g_hours','g_shrink','g_sl','g_attr','g_fteattr','r_0','r_1','r_2','g_1099_share','g_1099_cap','cmix8','cmix10','cmix6','cmix4','g_1099_auto'].forEach(id=>{
+/* Global inputs -> state (debounced, focus-safe) */
+['g_comp','g_hours','g_shrink','g_sl','g_attr','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
   const el=$('#'+id); if(!el) return;
-  el.oninput=()=>{
+  const updateGlobals=()=>{
     const g=state.globals;
     g.compPerHr=readNum($('#g_comp'));
     g.hoursPerDay=readNum($('#g_hours'));
@@ -859,17 +810,15 @@ $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('
     g.ramp0=readNum($('#r_0'));
     g.ramp1=readNum($('#r_1'));
     g.ramp2=readNum($('#r_2'));
-    g.cShare=readNum($('#g_1099_share'));
-    g.cCap=readNum($('#g_1099_cap'));
-    g.cAuto=$('#g_1099_auto').value==='true';
-    g.cmix8=readNum($('#cmix8')); g.cmix10=readNum($('#cmix10')); g.cmix6=readNum($('#cmix6')); g.cmix4=readNum($('#cmix4'));
-    renderAll();
+    saveState();
   };
+  el.addEventListener('input', ()=>{ updateGlobals(); scheduleRender(); });
+  el.addEventListener('blur',  ()=>{ updateGlobals(); withFocusPreserved(renderAll); });
 });
 
 /* Holidays UI */
-$('#btnAddHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value);const dt=$('#h_date').value; if(!ym||!dt||!dt.startsWith(ym)){alert('Pick a month and a date within that month.');return} if(!state.holiday[ym])state.holiday[ym]=[]; if(!state.holiday[ym].includes(dt))state.holiday[ym].push(dt); updateHolidayList(); renderAll();};
-$('#btnClearHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value); if(!ym)return; delete state.holiday[ym]; updateHolidayList(); renderAll();};
+$('#btnAddHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value);const dt=$('#h_date').value; if(!ym||!dt||!dt.startsWith(ym)){alert('Pick a month and a date within that month.');return} if(!state.holiday[ym])state.holiday[ym]=[]; if(!state.holiday[ym].includes(dt))state.holiday[ym].push(dt); updateHolidayList(); scheduleRender();};
+$('#btnClearHoliday').onclick=()=>{const ym=normalizeYM($('#h_month').value); if(!ym)return; delete state.holiday[ym]; updateHolidayList(); scheduleRender();};
 $('#h_month').oninput=updateHolidayList;
 function updateHolidayList(){const ym=normalizeYM($('#h_month').value);const arr=state.holiday[ym]||[];$('#h_list').textContent=arr.length?`Holidays: ${arr.join(', ')}`:'No holidays in selected month.';}
 
@@ -879,9 +828,9 @@ $('#startMonth').addEventListener('change',()=>{
   if($('#staffStart')) $('#staffStart').value=v;
   if($('#inStaffStart')) $('#inStaffStart').value=v;
   $('#in_month').value=v;
-  renderAll();
+  withFocusPreserved(renderAll);
 });
-$('#horizon').addEventListener('change',renderAll);
+$('#horizon').addEventListener('change',()=>withFocusPreserved(renderAll));
 
 /* Outbound CSV import + JSON export */
 $('#btnImportCsv').onclick=()=>{
@@ -906,9 +855,8 @@ $('#btnImportCsv').onclick=()=>{
         m.practiceLoss=+cols[idx['practice_loss']]||0;
         m.somFTE=+cols[idx['som_fte']]||0;
         m.newHires=+cols[idx['new_hires']]||0;
-        if(idx['planned1099']!=null){ m.planned1099=+cols[idx['planned1099']]||0; }
       });
-      saveState(); renderAll(); alert('Outbound CSV imported.');
+      saveState(); withFocusPreserved(renderAll); alert('Outbound CSV imported.');
     }catch(e){alert('Import failed: '+e.message);}
   };
   r.readAsText(f);
