@@ -5,16 +5,23 @@
     "headers": [
       {
         "source": "/index.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-store, must-revalidate" }]
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        ]
       },
       {
         "source": "/access.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-store, must-revalidate" }]
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        ]
       },
       {
         "source": "**/*.{js,css,svg,png,jpg,webp,woff,woff2}",
-        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-      },
-        "cleanUrls": true
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      }
+    ],
+    "cleanUrls": true
   }
 }
