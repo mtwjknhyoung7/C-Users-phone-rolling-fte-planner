@@ -30,7 +30,14 @@
   .foot{margin-top:12px;display:flex;justify-content:space-between;align-items:center}
   .hidden{display:none}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* Visually neutralize Chrome autofill tint (optional) */
+  input:-webkit-autofill{
+    transition: background-color 9999s ease-in-out 0s;
+    -webkit-text-fill-color: var(--ink) !important;
+  }
 </style>
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
 <div class="wrap">
@@ -41,46 +48,81 @@
 
   <div class="grid">
     <!-- Sign in -->
-    <div class="card">
+    <form class="card" id="loginForm" autocomplete="off">
       <h3>Sign in</h3>
-      <form id="loginForm" onsubmit="return false" autocomplete="off">
-        <div class="input">
-          <label>Email</label>
-          <input id="loginEmail" type="email" placeholder="you@company.com"
-                 autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email"/>
-        </div>
-        <div class="input">
-          <label>Password</label>
-          <input id="loginPass" type="password" placeholder="********"
-                 autocomplete="off" autocapitalize="none" spellcheck="false"/>
-        </div>
-        <div class="row">
-          <button id="btnLogin" class="btn primary" type="button">Sign in</button>
-        </div>
-        <div id="loginErr" class="err"></div>
-      </form>
-    </div>
+      <div class="input">
+        <label>Email</label>
+        <input
+          id="loginEmail"
+          name="lf_email"
+          type="email"
+          placeholder="you@company.com"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="email"
+          readonly
+        />
+      </div>
+      <div class="input">
+        <label>Password</label>
+        <input
+          id="loginPass"
+          name="lf_pass"
+          type="password"
+          placeholder="********"
+          autocomplete="off"
+          readonly
+        />
+      </div>
+      <div class="row">
+        <button id="btnLogin" class="btn primary" type="button">Sign in</button>
+      </div>
+      <div id="loginErr" class="err"></div>
+      <!-- Honeypot to further discourage autofill robots -->
+      <input type="text" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="off">
+      <input type="password" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="new-password">
+    </form>
 
     <!-- Create account -->
-    <div class="card">
+    <form class="card" id="createForm" autocomplete="off">
       <h3>Create account</h3>
-      <form id="createForm" onsubmit="return false" autocomplete="off">
-        <div class="input">
-          <label>Email</label>
-          <input id="createEmail" type="email" placeholder="you@company.com"
-                 autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email"/>
-        </div>
-        <div class="input">
-          <label>Password (min 8)</label>
-          <input id="createPass" type="password" placeholder="********" minlength="8"
-                 autocomplete="off" autocapitalize="none" spellcheck="false"/>
-        </div>
-        <div class="row">
-          <button id="btnCreate" class="btn" type="button">Create account</button>
-        </div>
-        <div id="createErr" class="err"></div>
-      </form>
-    </div>
+      <div class="input">
+        <label>Email</label>
+        <input
+          id="createEmail"
+          name="cf_email"
+          type="email"
+          placeholder="you@company.com"
+          autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="email"
+          readonly
+        />
+      </div>
+      <div class="input">
+        <label>Password (min 8)</label>
+        <input
+          id="createPass"
+          name="cf_pass"
+          type="password"
+          placeholder="********"
+          minlength="8"
+          autocomplete="new-password"
+          readonly
+        />
+      </div>
+      <div class="row">
+        <button id="btnCreate" class="btn" type="button">Create account</button>
+      </div>
+      <div id="createErr" class="err"></div>
+      <!-- Honeypot -->
+      <input type="text" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="off">
+      <input type="password" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="new-password">
+    </form>
   </div>
 
   <div class="foot">
@@ -117,12 +159,6 @@
   const $ = s => document.querySelector(s);
   const STATUS = $('#status');
 
-  function clearInputs() {
-    // Wipe any autofilled values to avoid showing your creds to the next user
-    const ids = ['loginEmail','loginPass','createEmail','createPass'];
-    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  }
-
   function setSession(email, role){
     const exp = Date.now() + 1000*60*60*12; // 12h
     localStorage.setItem('fte-session', JSON.stringify({ email, role, exp }));
@@ -142,6 +178,33 @@
     }
   })();
 
+  // --- Anti-autofill: unlock inputs on first user focus and always start blank ---
+  const fields = ['loginEmail','loginPass','createEmail','createPass'].map(id => $('#'+id));
+
+  function clearAllFields(){
+    fields.forEach(f => { if (f) f.value = ''; });
+  }
+  function unlockOnFocus(el){
+    if (!el) return;
+    el.addEventListener('focus', () => {
+      if (el.hasAttribute('readonly')) {
+        el.removeAttribute('readonly');
+      }
+    }, { once:true });
+  }
+  fields.forEach(unlockOnFocus);
+
+  // Clear on load, on visibility changes, and before bfcache restore
+  window.addEventListener('pageshow', (e) => {
+    // if restored from bfcache, ensure blank
+    clearAllFields();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') clearAllFields();
+  });
+  // Initial clear after DOM paints
+  setTimeout(clearAllFields, 0);
+
   // UI handlers
   $('#btnLogin').onclick = async () => {
     $('#loginErr').textContent = '';
@@ -153,12 +216,12 @@
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
       setSession(cred.user.email, role);
-      clearInputs();
+      clearAllFields();
       toIndex();
     }catch(e){
       $('#loginErr').textContent = mapAuthError(e);
       STATUS.textContent = '';
-      clearInputs();
+      clearAllFields();
     }
   };
 
@@ -173,25 +236,24 @@
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
       setSession(cred.user.email, role);
-      clearInputs();
+      clearAllFields();
       toIndex();
     }catch(e){
       $('#createErr').textContent = mapAuthError(e);
       STATUS.textContent = '';
-      clearInputs();
+      clearAllFields();
     }
   };
 
   // Auto-send to app if still valid
   onAuthStateChanged(auth, (user) => {
-    // Always clear inputs on any auth state change to avoid leftover creds
-    clearInputs();
-
     if(!user) return;
     const role = (user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
     setSession(user.email||'', role);
     $('#btnToApp').classList.remove('hidden');
     $('#btnToApp').onclick = toIndex;
+    // Also clear fields in case user navigates back here
+    clearAllFields();
   });
 
   function mapAuthError(e){
@@ -209,11 +271,6 @@
   try{
     STATUS.textContent = 'Firebase Auth: ready';
   }catch{ STATUS.textContent = 'Firebase not initialized'; }
-
-  // Final safeguard: clear on page show (including back/forward cache)
-  window.addEventListener('pageshow', clearInputs);
-  // Also clear immediately on DOM ready
-  document.addEventListener('DOMContentLoaded', clearInputs);
 </script>
 
 <!-- Inline error panel (for quick debugging) -->
