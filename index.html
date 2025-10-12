@@ -40,7 +40,7 @@
   .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
   .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
-  .gridwrap table{margin:0;border:none;border-radius:0}
+  .gridwrap table{margin:0;border:none;border-radius:0;width:100%}
   .gridwrap thead th{position:sticky;top:0;z-index:1}
   @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
 </style>
@@ -52,9 +52,7 @@
 (function () {
   const KEY='fte-session';
   const u=new URL(location.href);
-  if(u.searchParams.get('reset')==='1'){
-    try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{}
-  }
+  if(u.searchParams.get('reset')==='1'){ try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{} }
   const safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
   if(safe){try{window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null');}catch{} return;}
   let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null');}catch{location.href='access.html';return}
@@ -204,6 +202,7 @@
         Service level: <code>SL = 1 - ErlangC × exp(-(N - a) × T / AHT)</code>, with <code>a = calls*AHT / interval_seconds</code>.
       </div>
 
+      <!-- FIXED: tbody is now inside the table -->
       <div class="gridwrap" id="intervalGrid" style="display:none">
         <table>
           <thead><tr><th>Interval</th><th>Calls</th><th>Load (erl)</th><th>Agents N</th><th>SL %</th><th>ASA (s)</th><th>Agents w/ Shrink</th></tr></thead>
@@ -284,7 +283,7 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const readNum=el=>{const s=(el?.value||'').replace(/[^0-9.\-]/g,'');const v=parseFloat(s);return isNaN(v)?0:v;}
 const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
 document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
-document.getElementById('btnSignOut').onclick=()=>{try{localStorage.removeItem('fte-session');}catch{} location.href='access.html';};
+document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
 
 /* Month helpers (timezone-safe) */
 function normalizeYM(s){
@@ -325,9 +324,6 @@ function defaultState(){
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
-  // drop legacy defAttr if present
-  delete g.defAttr;
-  if(g.defFteAttr==null) g.defFteAttr=3.5;
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
@@ -460,7 +456,6 @@ function renderOverview(){
       </div>`;
     row.querySelector('[data-act="toggle"]').onclick=()=>{m.open=!m.open;renderOverview();};
     row.querySelectorAll('input[data-f],select[data-f]').forEach(inp=>{
-      // save on input (no re-render)
       inp.oninput=()=>{
         const f=inp.getAttribute('data-f');
         let v=inp.tagName==='SELECT'?inp.value:(inp.value||'').replace(/[^0-9.\-]/g,'');
@@ -469,7 +464,6 @@ function renderOverview(){
         else if(f==='autoCarryFTE'||f==='autoSOM'){m[f]=(v==='true');}
         saveState();
       };
-      // re-render on blur
       inp.onblur=()=>{ renderAll(); };
     });
     cont.appendChild(row);
@@ -511,8 +505,8 @@ function renderExec(){
   const nc=document.getElementById('chartNet').getContext('2d');
   const fc=document.getElementById('chartFte').getContext('2d');
   if(netChart)netChart.destroy(); if(fteChart)fteChart.destroy();
-  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); // precise values
-  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          // precise values
+  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); // precise
+  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          // precise
 }
 
 /* Outbound – Staff */
@@ -572,7 +566,7 @@ function ensureInboundGrid(){
       const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
       state.inbound.rows[i].calls = val; saveState();
     };
-    inp.onblur=()=>{ /* no re-render needed; grid updates on compute */ };
+    inp.onblur=()=>{};
   });
 }
 $('#btnBuildIntervals').onclick=ensureInboundGrid;
@@ -639,7 +633,6 @@ function erlangRunAndStore(){
   const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
   const monthlyFTE = dailyFTE * wd;
 
-  // write table
   const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
   body.querySelectorAll('tr').forEach((tr,i)=>{
     const r=rows[i];
@@ -650,7 +643,6 @@ function erlangRunAndStore(){
     tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
   });
 
-  // summary
   $('#intervalGrid').style.display='block';
   $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
   $('#in_agent_hours').textContent = agentHours.toFixed(1);
@@ -659,7 +651,6 @@ function erlangRunAndStore(){
   $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
   $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
 
-  // store by month for Inbound – Staff tab
   if(!state.inbound.monthFTE) state.inbound.monthFTE={};
   state.inbound.monthFTE[ym] = monthlyFTE;
   saveState();
@@ -754,7 +745,7 @@ $('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOv
 $('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
 $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
 
-/* Global inputs -> state (save on input; render on blur) */
+/* Global inputs -> state */
 ['g_comp','g_hours','g_shrink','g_sl','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
   const el=$('#'+id); if(!el) return;
   const writeGlobals=()=>{
@@ -831,8 +822,12 @@ function init(){
   $('#in_month').value=$('#startMonth').value;
   $('#inStaffStart').value=$('#startMonth').value;
   renderAll();
+  logAlive('INIT OK: scripts attached');
 }
 init();
+
+/* tiny heartbeat to error panel */
+function logAlive(msg){ try{ const b=document.getElementById('errbox'); if(!b) return; b.style.display='block'; const p=document.createElement('div'); p.textContent='[alive] '+msg; b.appendChild(p);}catch{} }
 </script>
 
 <!-- Inline error panel (for quick debugging) -->
