@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Sign in · Rolling FTE Planner</title>
 <style>
-  :root{--bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--ink:#0f172a;--brand:#18b6a0;--brand2:#12927f;--err:#dc2626}
+  :root{
+    --bg:#f6f8fc;--panel:#fff;--border:#e5e7eb;--muted:#64748b;--ink:#0f172a;--brand:#18b6a0;--brand2:#12927f;--err:#dc2626
+  }
   html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
   .wrap{max-width:880px;margin:40px auto;padding:0 16px}
   header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
@@ -24,6 +26,8 @@
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .muted{color:var(--muted)}
   .err{color:var(--err);min-height:18px}
+  .ok{color:#16a34a}
+  .foot{margin-top:12px;display:flex;justify-content:space-between;align-items:center}
   .hidden{display:none}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
@@ -32,57 +36,65 @@
 <div class="wrap">
   <header>
     <div class="brand">Rolling FTE Planner</div>
-    <span class="badge">access build 2025-10-10c</span>
+    <span id="build" class="badge">access build 2025-10-10a</span>
   </header>
 
   <div class="grid">
     <!-- Sign in -->
     <div class="card">
       <h3>Sign in</h3>
-      <div class="input">
-        <label>Email</label>
-        <input id="loginEmail" type="email" placeholder="you@company.com" autocomplete="username"/>
-      </div>
-      <div class="input">
-        <label>Password</label>
-        <input id="loginPass" type="password" placeholder="********" autocomplete="current-password"/>
-      </div>
-      <div class="row">
-        <button id="btnLogin" class="btn primary">Sign in</button>
-      </div>
-      <div id="loginErr" class="err"></div>
+      <form id="loginForm" onsubmit="return false" autocomplete="off">
+        <div class="input">
+          <label>Email</label>
+          <input id="loginEmail" type="email" placeholder="you@company.com"
+                 autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email"/>
+        </div>
+        <div class="input">
+          <label>Password</label>
+          <input id="loginPass" type="password" placeholder="********"
+                 autocomplete="off" autocapitalize="none" spellcheck="false"/>
+        </div>
+        <div class="row">
+          <button id="btnLogin" class="btn primary" type="button">Sign in</button>
+        </div>
+        <div id="loginErr" class="err"></div>
+      </form>
     </div>
 
     <!-- Create account -->
     <div class="card">
       <h3>Create account</h3>
-      <div class="input">
-        <label>Email</label>
-        <input id="createEmail" type="email" placeholder="you@company.com" autocomplete="username"/>
-      </div>
-      <div class="input">
-        <label>Password (min 8)</label>
-        <input id="createPass" type="password" placeholder="********" minlength="8" autocomplete="new-password"/>
-      </div>
-      <div class="row">
-        <button id="btnCreate" class="btn">Create account</button>
-      </div>
-      <div id="createErr" class="err"></div>
+      <form id="createForm" onsubmit="return false" autocomplete="off">
+        <div class="input">
+          <label>Email</label>
+          <input id="createEmail" type="email" placeholder="you@company.com"
+                 autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="email"/>
+        </div>
+        <div class="input">
+          <label>Password (min 8)</label>
+          <input id="createPass" type="password" placeholder="********" minlength="8"
+                 autocomplete="off" autocapitalize="none" spellcheck="false"/>
+        </div>
+        <div class="row">
+          <button id="btnCreate" class="btn" type="button">Create account</button>
+        </div>
+        <div id="createErr" class="err"></div>
+      </form>
     </div>
   </div>
 
-  <div class="row" style="margin-top:12px;justify-content:space-between">
+  <div class="foot">
     <span id="status" class="muted"></span>
-    <div class="row">
-      <button id="btnToApp" class="btn hidden">Go to app</button>
-      <button id="btnReset" class="btn">Reset session</button>
-    </div>
+    <button id="btnToApp" class="btn hidden" type="button">Go to app</button>
   </div>
 </div>
 
+<!-- Firebase v10 CDN (modules) -->
 <script type="module">
-  const OWNER_EMAIL = "phoneemail07@gmail.com";
+  /************* EDIT ONLY IF YOU CHANGE OWNER EMAIL *************/
+  const OWNER_EMAIL = "phoneemail07@gmail.com";   // <- you are the only Superadmin
 
+  // --- Your Firebase config (from your console) ---
   const firebaseConfig = {
     apiKey: "AIzaSyBG9uJSuftXsRqvIxo2NZPRJmsLGro3vbA",
     authDomain: "fte-planner.firebaseapp.com",
@@ -93,26 +105,36 @@
     measurementId: "G-0BZP3LETBE"
   };
 
+  // --- Load Firebase modules from CDN ---
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getAuth, onAuthStateChanged,
     signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    setPersistence, browserLocalPersistence, signOut
+    setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+  // Helpers
   const $ = s => document.querySelector(s);
   const STATUS = $('#status');
+
+  function clearInputs() {
+    // Wipe any autofilled values to avoid showing your creds to the next user
+    const ids = ['loginEmail','loginPass','createEmail','createPass'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  }
+
   function setSession(email, role){
     const exp = Date.now() + 1000*60*60*12; // 12h
     localStorage.setItem('fte-session', JSON.stringify({ email, role, exp }));
   }
   function toIndex(){ location.href = 'index.html'; }
 
+  // Init
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   await setPersistence(auth, browserLocalPersistence);
 
-  // Optional quick reset
+  // Optional reset hook
   (function(){
     const u = new URL(location.href);
     if (u.searchParams.get('reset') === '1') {
@@ -120,13 +142,7 @@
     }
   })();
 
-  // Buttons
-  $('#btnReset').onclick = async () => {
-    try { await signOut(auth); } catch {}
-    try { localStorage.removeItem('fte-session'); } catch {}
-    STATUS.textContent = 'Session cleared.';
-  };
-
+  // UI handlers
   $('#btnLogin').onclick = async () => {
     $('#loginErr').textContent = '';
     STATUS.textContent = 'Signing in…';
@@ -137,10 +153,12 @@
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
       setSession(cred.user.email, role);
+      clearInputs();
       toIndex();
     }catch(e){
       $('#loginErr').textContent = mapAuthError(e);
       STATUS.textContent = '';
+      clearInputs();
     }
   };
 
@@ -155,21 +173,25 @@
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       const role = (email === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
       setSession(cred.user.email, role);
+      clearInputs();
       toIndex();
     }catch(e){
       $('#createErr').textContent = mapAuthError(e);
       STATUS.textContent = '';
+      clearInputs();
     }
   };
 
-  // IMPORTANT: do NOT auto-redirect here. Only expose the button.
+  // Auto-send to app if still valid
   onAuthStateChanged(auth, (user) => {
-    if(!user) { STATUS.textContent = 'Firebase Auth: ready'; return; }
+    // Always clear inputs on any auth state change to avoid leftover creds
+    clearInputs();
+
+    if(!user) return;
     const role = (user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) ? 'superadmin' : 'user';
     setSession(user.email||'', role);
     $('#btnToApp').classList.remove('hidden');
     $('#btnToApp').onclick = toIndex;
-    STATUS.textContent = 'Signed in. Click "Go to app".';
   });
 
   function mapAuthError(e){
@@ -182,6 +204,39 @@
     if(c.includes('auth/network-request-failed')) return 'Network error. Try again.';
     return 'Error: ' + (e?.message || 'Unknown error');
   }
+
+  // Status line
+  try{
+    STATUS.textContent = 'Firebase Auth: ready';
+  }catch{ STATUS.textContent = 'Firebase not initialized'; }
+
+  // Final safeguard: clear on page show (including back/forward cache)
+  window.addEventListener('pageshow', clearInputs);
+  // Also clear immediately on DOM ready
+  document.addEventListener('DOMContentLoaded', clearInputs);
 </script>
+
+<!-- Inline error panel (for quick debugging) -->
+<div id="errbox" style="position:fixed;left:8px;bottom:8px;right:8px;max-height:40vh;overflow:auto;background:#111;color:#fff;padding:8px;border-radius:8px;font:12px/1.4 monospace;display:none;z-index:99999"></div>
+<script>
+(function(){
+  function show(msg){
+    var b=document.getElementById('errbox');
+    if (!b) return;
+    b.style.display='block';
+    var p=document.createElement('div');
+    p.textContent = '['+new Date().toISOString()+'] ' + msg;
+    b.appendChild(p);
+  }
+  window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
+  window.onerror = function(msg, src, lin, col, err){
+    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:'')); return false;
+  };
+  window.addEventListener('unhandledrejection', function(e){
+    var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
+  });
+})();
+</script>
+
 </body>
 </html>
