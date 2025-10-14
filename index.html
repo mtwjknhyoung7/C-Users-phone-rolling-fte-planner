@@ -40,7 +40,7 @@
   .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
   .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
-  .gridwrap table{margin:0;border:none;border-radius:0;width:100%}
+  .gridwrap table{margin:0;border:none;border-radius:0}
   .gridwrap thead th{position:sticky;top:0;z-index:1}
   @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
 </style>
@@ -202,7 +202,6 @@
         Service level: <code>SL = 1 - ErlangC × exp(-(N - a) × T / AHT)</code>, with <code>a = calls*AHT / interval_seconds</code>.
       </div>
 
-      <!-- FIXED: tbody is now inside the table -->
       <div class="gridwrap" id="intervalGrid" style="display:none">
         <table>
           <thead><tr><th>Interval</th><th>Calls</th><th>Load (erl)</th><th>Agents N</th><th>SL %</th><th>ASA (s)</th><th>Agents w/ Shrink</th></tr></thead>
@@ -324,6 +323,8 @@ function defaultState(){
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
+  delete g.defAttr;
+  if(g.defFteAttr==null) g.defFteAttr=3.5;
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
@@ -347,7 +348,7 @@ function ensureMonth(ym){
     state.months=dedupAndSortMonths(state.months);
   }
 }
-function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1)){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
+function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
 
 /* Outbound calc */
 function monthCalc(m){
@@ -498,15 +499,15 @@ function renderExec(){
       <div class="row"><span class="muted">EOM Patients (Net)</span><span style="margin-left:auto;font-weight:700">${Math.round(mc.netPatients).toLocaleString()}</span></div>
       <div class="row"><span class="muted">SL Patients</span><span style="margin-left:auto;font-weight:700">${mc.slPatients.toLocaleString()}</span></div>
       <div class="row"><span class="muted">FTE Need</span><span style="margin-left:auto;font-weight:700">${mc.fteNeed.toFixed(1)}</span></div>
-      <div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto)">${(m.somFTE||0).toFixed(1)}</span></div>
+      <div class="row"><span class="muted">SOM FTE</span><span style="margin-left:auto">${(m.somFTE||0).toFixed(1)}</span></div>
       <div class="row"><span class="muted ${gap>0?'danger':'ok'}">Hiring Gap (vs SOM)</span><span style="margin-left:auto">${gap.toFixed(1)}</span></div></div>`;
     cards.appendChild(div);
   });
   const nc=document.getElementById('chartNet').getContext('2d');
   const fc=document.getElementById('chartFte').getContext('2d');
   if(netChart)netChart.destroy(); if(fteChart)fteChart.destroy();
-  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); // precise
-  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          // precise
+  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); // charts use precise values
+  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          // precise values
 }
 
 /* Outbound – Staff */
@@ -566,7 +567,7 @@ function ensureInboundGrid(){
       const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
       state.inbound.rows[i].calls = val; saveState();
     };
-    inp.onblur=()=>{};
+    inp.onblur=()=>{ /* no re-render needed; grid updates on compute */ };
   });
 }
 $('#btnBuildIntervals').onclick=ensureInboundGrid;
@@ -626,13 +627,14 @@ function erlangRunAndStore(){
   });
   avgAgents = rows.length ? avgAgents/rows.length : 0;
 
-  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date()));
+  const ym = normalizeYM($('#in_month').value) || ($('#startMonth').value) || ymKey(new Date()); /* FIXED LINE */
   const holidays = new Set((state.holiday[ym]||[]));
   const wd = getWorkdays(ym, holidays);
   const effHoursPerFTE = state.globals.hoursPerDay * (1 - (state.globals.shrink/100));
   const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
   const monthlyFTE = dailyFTE * wd;
 
+  // write table
   const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
   body.querySelectorAll('tr').forEach((tr,i)=>{
     const r=rows[i];
@@ -643,6 +645,7 @@ function erlangRunAndStore(){
     tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
   });
 
+  // summary
   $('#intervalGrid').style.display='block';
   $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
   $('#in_agent_hours').textContent = agentHours.toFixed(1);
@@ -651,6 +654,7 @@ function erlangRunAndStore(){
   $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
   $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
 
+  // store by month for Inbound – Staff tab
   if(!state.inbound.monthFTE) state.inbound.monthFTE={};
   state.inbound.monthFTE[ym] = monthlyFTE;
   saveState();
@@ -659,7 +663,7 @@ $('#btnInboundCalc').onclick=erlangRunAndStore;
 
 $('#btnExportInbound').onclick=()=>{
   if(!state.inbound.rows || !state.inbound.rows.length){ alert('Nothing to export yet. Build or import intervals first.'); return; }
-  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date()));
+  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date());
   const ivl = Number($('#in_ivl').value||30);
   const rows=state.inbound.rows;
   const hdr=['interval','calls','load_erl','agents_N','SL_pct','ASA_sec','agents_with_shrinkage'];
@@ -745,7 +749,7 @@ $('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOv
 $('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
 $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
 
-/* Global inputs -> state */
+/* Global inputs -> state (save on input; render on blur) */
 ['g_comp','g_hours','g_shrink','g_sl','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
   const el=$('#'+id); if(!el) return;
   const writeGlobals=()=>{
@@ -822,12 +826,8 @@ function init(){
   $('#in_month').value=$('#startMonth').value;
   $('#inStaffStart').value=$('#startMonth').value;
   renderAll();
-  logAlive('INIT OK: scripts attached');
 }
 init();
-
-/* tiny heartbeat to error panel */
-function logAlive(msg){ try{ const b=document.getElementById('errbox'); if(!b) return; b.style.display='block'; const p=document.createElement('div'); p.textContent='[alive] '+msg; b.appendChild(p);}catch{} }
 </script>
 
 <!-- Inline error panel (for quick debugging) -->
@@ -844,7 +844,8 @@ function logAlive(msg){ try{ const b=document.getElementById('errbox'); if(!b) r
   }
   window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
   window.onerror = function(msg, src, lin, col, err){
-    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:'')); return false;
+    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:''));
+    return false;
   };
   window.addEventListener('unhandledrejection', function(e){
     var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
