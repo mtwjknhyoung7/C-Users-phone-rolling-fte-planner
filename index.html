@@ -1,49 +1,50 @@
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Rolling FTE Planner</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-  :root{--bg:#f5f7fb;--panel:#fff;--muted:#64748b;--text:#0f172a;--border:#e5e7eb;--brand:#18b6a0;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--chip:#eef2ff}
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),#f3f6fb;color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  header.appbar{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
-  .brand{font-weight:800;letter-spacing:.2px}.chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
-  .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
-  .btn.small{padding:6px 8px;font-size:12px}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.muted{color:var(--muted)}.ok{color:var(--ok)}.danger{color:var(--err)}
-  .wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;min-height:100vh;padding:14px}
-  aside.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;height:calc(100vh - 110px);position:sticky;top:86px;overflow:auto}
-  .sec{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
-  .sec h3{margin:0 0 8px 0;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#334155}
-  .input{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}.input label{font-size:12px;color:#64748b}
-  .input input,.input select{height:38px;border:1px solid var(--border);border-radius:10px;padding:8px;width:100%}
-  .hint{font-size:11px;color:#94a3b8}
-  main.content{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;min-height:calc(100vh - 110px)}
-  .tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-  .tab{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
-  .tab.active{background:linear-gradient(180deg,#18b6a0,#12927f);border-color:#108574;color:#fff}
-  .month-row{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
-  .month-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-title{font-weight:700}
-  .kpis{display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:12px;margin-top:8px}
-  .k{display:flex;flex-direction:column;gap:4px;min-width:110px}.k label{font-size:11px;color:#6b7280}
-  .k input{height:38px;border:1px solid var(--border);border-radius:10px;padding:6px 8px;width:100%}
-  .k input[maxlength]{font-variant-numeric:tabular-nums}
-  .k .val{font-weight:700;min-height:38px;display:flex;align-items:center;padding:6px 8px;border:1px dashed #e5e7eb;border-radius:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .month-body{margin-top:10px;display:none}.month-row.open .month-body{display:block}
-  .diag-item{border-left:4px solid var(--err);padding:8px;background:#fff;border:1px solid var(--border);border-left-color:var(--err);border-radius:8px;margin-bottom:8px}
-  table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
-  th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left} thead th{background:#f8fafc;font-weight:700} tbody tr:last-child td{border-bottom:none}
-  .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}.seg button{border:none;background:#fff;padding:6px 10px;cursor:pointer}.seg button.active{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff}
-  .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-  .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
-  .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
-  .gridwrap table{margin:0;border:none;border-radius:0}
-  .gridwrap thead th{position:sticky;top:0;z-index:1}
-  @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Rolling FTE Planner</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#f5f7fb;--panel:#fff;--muted:#64748b;--text:#0f172a;--border:#e5e7eb;--brand:#18b6a0;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--chip:#eef2ff}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:radial-gradient(900px 300px at -10% -10%, rgba(24,182,160,.08), transparent 60%),#f3f6fb;color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    header.appbar{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 22px rgba(2,6,23,.06)}
+    .brand{font-weight:800;letter-spacing:.2px}.chip{background:var(--chip);border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:12px}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .btn.small{padding:6px 8px;font-size:12px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.muted{color:var(--muted)}.ok{color:var(--ok)}.danger{color:var(--err)}
+    .wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;min-height:100vh;padding:14px}
+    aside.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;height:calc(100vh - 110px);position:sticky;top:86px;overflow:auto}
+    .sec{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
+    .sec h3{margin:0 0 8px 0;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#334155}
+    .input{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}.input label{font-size:12px;color:#64748b}
+    .input input,.input select{height:38px;border:1px solid var(--border);border-radius:10px;padding:8px;width:100%}
+    .hint{font-size:11px;color:#94a3b8}
+    main.content{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 22px rgba(2,6,23,.06);padding:12px;min-height:calc(100vh - 110px)}
+    .tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+    .tab{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
+    .tab.active{background:linear-gradient(180deg,#18b6a0,#12927f);border-color:#108574;color:#fff}
+    .month-row{border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px;background:#fff}
+    .month-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-title{font-weight:700}
+    .kpis{display:grid;grid-template-columns:repeat(14,minmax(110px,1fr));gap:12px;margin-top:8px}
+    .k{display:flex;flex-direction:column;gap:4px;min-width:110px}.k label{font-size:11px;color:#6b7280}
+    .k input{height:38px;border:1px solid var(--border);border-radius:10px;padding:6px 8px;width:100%}
+    .k .val{font-weight:700;min-height:38px;display:flex;align-items:center;padding:6px 8px;border:1px dashed #e5e7eb;border-radius:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .month-body{margin-top:10px;display:none}.month-row.open .month-body{display:block}
+    .diag-item{border-left:4px solid var(--err);padding:8px;background:#fff;border:1px solid var(--border);border-left-color:var(--err);border-radius:8px;margin-bottom:8px}
+    table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
+    th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+    thead th{background:#f8fafc;font-weight:700}
+    tbody tr:last-child td{border-bottom:none}
+    .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}.seg button{border:none;background:#fff;padding:6px 10px;cursor:pointer}.seg button.active{background:linear-gradient(180deg,#18b6a0,#12927f);color:#fff}
+    .card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:10px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+    .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:#fff}
+    .gridwrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
+    .gridwrap table{margin:0;border:none;border-radius:0}
+    .gridwrap thead th{position:sticky;top:0;z-index:1}
+    @media (max-width:1180px){.wrap{grid-template-columns:1fr}aside.sidebar{position:static;height:auto}}
+  </style>
 </head>
 <body>
 
@@ -54,10 +55,11 @@
   const u=new URL(location.href);
   if(u.searchParams.get('reset')==='1'){ try{localStorage.removeItem('fte-state-v2');localStorage.removeItem(KEY);}catch{} }
   const safe=(u.hash==='#safe'||u.searchParams.get('safe')==='1');
-  if(safe){try{window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null');}catch{} return;}
-  let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null');}catch{location.href='access.html';return}
-  if(!s||!s.email||!s.role){location.href='access.html';return}
-  if(s.exp && Date.now()>=Number(s.exp)){localStorage.removeItem(KEY);location.href='access.html';return}
+  if(safe){ try{ window.__FTE_SESSION__=JSON.parse(localStorage.getItem(KEY)||'null'); } catch{} return; }
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem(KEY)||'null'); }catch{ location.href='access.html'; return; }
+  if(!s||!s.email||!s.role){ location.href='access.html'; return; }
+  if(s.exp && Date.now()>=Number(s.exp)){ localStorage.removeItem(KEY); location.href='access.html'; return; }
   window.__FTE_SESSION__=s;
 })();
 </script>
@@ -199,7 +201,6 @@
 
       <div class="hint" style="margin-bottom:6px">
         CSV columns accepted: <b>datetime,calls</b> (optional <b>aht_sec,target_asa_sec</b>). We bin by interval-of-day.
-        Service level: <code>SL = 1 - ErlangC × exp(-(N - a) × T / AHT)</code>, with <code>a = calls*AHT / interval_seconds</code>.
       </div>
 
       <div class="gridwrap" id="intervalGrid" style="display:none">
@@ -279,59 +280,38 @@
 /* ===== Utilities & session ===== */
 const session=window.__FTE_SESSION__||{email:'(safe)',role:'user'};
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
-const readNum=el=>{const s=(el?.value||'').replace(/[^0-9.\-]/g,'');const v=parseFloat(s);return isNaN(v)?0:v;}
-const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');}
+const readNum=el=>{const s=(el?.value||'').replace(/[^0-9.\-]/g,'');const v=parseFloat(s);return isNaN(v)?0:v;};
+const setNum=(el,v,dec=0)=>{el.value=(isFinite(v)?Number(v).toFixed(dec):'');};
 document.getElementById('userInfo').textContent=`${session.email} · ${session.role}`;
 document.getElementById('btnSignOut').onclick=()=>{localStorage.removeItem('fte-session');location.href='access.html';};
 
-/* Month helpers (timezone-safe) */
+/* Month helpers */
 function normalizeYM(s){
-  if(!s)return s;
+  if(!s) return s;
   const m1=/^(\d{4})-(\d{1,2})$/.exec(s); if(m1) return `${m1[1]}-${String(Number(m1[2])).padStart(2,'0')}`;
   const m2=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m2) return `${m2[1]}-${String(Number(m2[2])).padStart(2,'0')}`;
   return s;
 }
 function ymKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-function ymToDate(ym){
-  const n=normalizeYM(ym); if(!n) return new Date();
-  const [Y,M]=n.split('-').map(Number);
-  return new Date(Y, (M||1)-1, 1);
-}
-function dedupAndSortMonths(arr){
-  const map=new Map();
-  (arr||[]).forEach(m=>{
-    const ym=normalizeYM(m?.ym||''); if(!ym) return;
-    const d=ymToDate(ym);
-    const prev=map.get(ym)||{};
-    map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});
-  });
-  return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));
-}
+function ymToDate(ym){const n=normalizeYM(ym); if(!n) return new Date(); const [Y,M]=n.split('-').map(Number); return new Date(Y,(M||1)-1,1);}
+function dedupAndSortMonths(arr){const map=new Map();(arr||[]).forEach(m=>{const ym=normalizeYM(m?.ym||''); if(!ym) return; const d=ymToDate(ym); const prev=map.get(ym)||{}; map.set(ym,{...prev,...m,ym,name:d.toLocaleString(undefined,{month:'long',year:'numeric'})});}); return Array.from(map.values()).sort((a,b)=>ymToDate(a.ym)-ymToDate(b.ym));}
 
 /* State */
 const STATE_KEY='fte-state-v2'; let state=null;
 function defaultState(){
   const now=new Date();const start=new Date(now.getFullYear(),now.getMonth(),1);
   const months=buildMonths(start,12).map(m=>({ym:m.ym,name:m.name,somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false}));
-  return{
-    globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},
-    holiday:{},
-    months,
-    inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}
-  };
+  return{globals:{compPerHr:1.75,hoursPerDay:8,shrink:35,sl:95,defFteAttr:3.5,ramp0:5,ramp1:50,ramp2:100},holiday:{},months,inbound:{ivl:30,rows:[],monthFTE:{},monthStaffed:{}}};
 }
 function repairState(raw){
   const d=defaultState();
   const g={...d.globals,...(raw?.globals||{})};
-  delete g.defAttr;
-  if(g.defFteAttr==null) g.defFteAttr=3.5;
+  delete g.defAttr; if(g.defFteAttr==null) g.defFteAttr=3.5;
   const h={};for(const k in (raw?.holiday||{})){h[normalizeYM(k)]=raw.holiday[k]||[];}
   let months=dedupAndSortMonths(raw?.months||d.months);
   months=months.map(m=>({somPatients:0,enrollments:0,practiceLoss:0,attritionPct:null,somFTE:0,newHires:0,fteAttritionPct:null,autoCarryFTE:true,autoSOM:false,open:false,...m,ym:normalizeYM(m.ym)}));
   if(!months.length) months=d.months;
-  const inbound={...d.inbound,...(raw?.inbound||{})};
-  inbound.monthFTE=inbound.monthFTE||{};
-  inbound.monthStaffed=inbound.monthStaffed||{};
+  const inbound={...d.inbound,...(raw?.inbound||{})}; inbound.monthFTE=inbound.monthFTE||{}; inbound.monthStaffed=inbound.monthStaffed||{};
   return{globals:g,holiday:h,months,inbound};
 }
 function loadState(){try{const raw=JSON.parse(localStorage.getItem(STATE_KEY)||'null');if(!raw)return defaultState();return repairState(raw);}catch{return defaultState();}}
@@ -348,7 +328,7 @@ function ensureMonth(ym){
     state.months=dedupAndSortMonths(state.months);
   }
 }
-function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
+function getWorkdays(ym,holidaysSet){const[Y,M]=normalizeYM(ym).split('-').map(Number);if(!Y||!M)return 0;const d0=new Date(Y,M-1,1);let wd=0;for(let d=new Date(d0);d.getMonth()===M-1;d.setDate(d.getDate()+1)){const dow=d.getDay();const iso=d.toISOString().slice(0,10);if(dow>=1&&dow<=5&&!holidaysSet.has(iso))wd++;}return wd;}
 
 /* Outbound calc */
 function monthCalc(m){
@@ -404,23 +384,20 @@ function renderSidebar(){
 function renderOverview(){
   state.months=dedupAndSortMonths(state.months);
   const cont=$('#months'); if(!cont) return; cont.innerHTML='';
-  const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date()));
+  const startSel = normalizeYM($('#startMonth')?.value)||ymKey(new Date());
   const horizon = Number($('#horizon')?.value||12);
 
-  // Build exact view span (timezone-safe)
   const span = buildMonths(ymToDate(startSel), horizon).map(x=>x.ym);
   const map=Object.fromEntries(state.months.map(m=>[normalizeYM(m.ym),m]));
   for(const ym of span){ if(!map[ym]) ensureMonth(ym); }
   state.months=dedupAndSortMonths(state.months);
 
-  // Auto-carry toggles (on chronological order)
   for(let i=0;i<state.months.length;i++){
     const m=state.months[i];
     if(i>0&&m.autoCarryFTE){m.somFTE=monthCalc(state.months[i-1]).eomFTE;}
     if(i>0&&m.autoSOM){m.somPatients=Math.max(0,monthCalc(state.months[i-1]).netPatients);}
   }
 
-  // Render only the span
   span.forEach(ym=>{
     const m=state.months.find(x=>normalizeYM(x.ym)===ym);
     if(!m) return;
@@ -457,9 +434,7 @@ function renderOverview(){
       </div>`;
     row.querySelector('[data-act="toggle"]').onclick=()=>{m.open=!m.open;renderOverview();};
     row.querySelectorAll('input[data-f],select[data-f]').forEach(inp=>{
-      inp.oninput=()=>{
-        const f=inp.getAttribute('data-f');
-        let v=inp.tagName==='SELECT'?inp.value:(inp.value||'').replace(/[^0-9.\-]/g,'');
+      inp.oninput=()=>{ const f=inp.getAttribute('data-f'); let v=inp.tagName==='SELECT'?inp.value:(inp.value||'').replace(/[^0-9.\-]/g,'');
         if(['somPatients','enrollments','practiceLoss','somFTE','newHires'].includes(f)){m[f]=v===''?0:parseFloat(v);}
         else if(['attritionPct','fteAttritionPct'].includes(f)){m[f]=v===''?null:parseFloat(v);}
         else if(f==='autoCarryFTE'||f==='autoSOM'){m[f]=(v==='true');}
@@ -506,8 +481,8 @@ function renderExec(){
   const nc=document.getElementById('chartNet').getContext('2d');
   const fc=document.getElementById('chartFte').getContext('2d');
   if(netChart)netChart.destroy(); if(fteChart)fteChart.destroy();
-  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); // charts use precise values
-  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          // precise values
+  netChart=new Chart(nc,{type:'line',data:{labels,datasets:[{label:'EOM Patients (Net)',data:nets}]}}); 
+  fteChart=new Chart(fc,{type:'line',data:{labels,datasets:[{label:'FTE Need',data:needs}]}});          
 }
 
 /* Outbound – Staff */
@@ -563,11 +538,7 @@ function ensureInboundGrid(){
     body.appendChild(tr);
   });
   body.querySelectorAll('input[data-in="calls"]').forEach(inp=>{
-    inp.oninput=()=>{
-      const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      state.inbound.rows[i].calls = val; saveState();
-    };
-    inp.onblur=()=>{ /* no re-render needed; grid updates on compute */ };
+    inp.oninput=()=>{ const i=Number(inp.getAttribute('data-idx')); const val=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0; state.inbound.rows[i].calls = val; saveState(); };
   });
 }
 $('#btnBuildIntervals').onclick=ensureInboundGrid;
@@ -627,15 +598,14 @@ function erlangRunAndStore(){
   });
   avgAgents = rows.length ? avgAgents/rows.length : 0;
 
-  const ym = normalizeYM($('#in_month').value) || ($('#startMonth').value) || ymKey(new Date()); /* FIXED LINE */
+  const ym = normalizeYM($('#in_month').value)||($('#startMonth').value)||ymKey(new Date()));
   const holidays = new Set((state.holiday[ym]||[]));
   const wd = getWorkdays(ym, holidays);
   const effHoursPerFTE = state.globals.hoursPerDay * (1 - (state.globals.shrink/100));
   const dailyFTE = effHoursPerFTE>0 ? agentHours / effHoursPerFTE : 0;
   const monthlyFTE = dailyFTE * wd;
 
-  // write table
-  const body=$('#intervalBody'); if(!body){ ensureInboundGrid(); }
+  const body=$('#intervalBody');
   body.querySelectorAll('tr').forEach((tr,i)=>{
     const r=rows[i];
     tr.querySelector('[data-out="a"]').textContent = r.a.toFixed(2);
@@ -645,7 +615,6 @@ function erlangRunAndStore(){
     tr.querySelector('[data-out="Nadj"]').textContent = r.Nadj.toString();
   });
 
-  // summary
   $('#intervalGrid').style.display='block';
   $('#in_summary_hdr').textContent = `${ym} · ${wd} workdays · ${ivl}-min`;
   $('#in_agent_hours').textContent = agentHours.toFixed(1);
@@ -654,7 +623,6 @@ function erlangRunAndStore(){
   $('#in_daily_fte').textContent = dailyFTE.toFixed(1);
   $('#in_monthly_fte').textContent = monthlyFTE.toFixed(1);
 
-  // store by month for Inbound – Staff tab
   if(!state.inbound.monthFTE) state.inbound.monthFTE={};
   state.inbound.monthFTE[ym] = monthlyFTE;
   saveState();
@@ -700,16 +668,13 @@ function renderInStaff(){
   });
 
   tbody.querySelectorAll('input[data-instaff]').forEach(inp=>{
-    inp.oninput=()=>{
-      const ym=inp.getAttribute('data-instaff');
-      const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
-      if(!state.inbound.monthStaffed) state.inbound.monthStaffed={};
-      state.inbound.monthStaffed[ym]=v; saveState(); renderInStaff();
+    inp.oninput=()=>{ const ym=inp.getAttribute('data-instaff'); const v=parseFloat((inp.value||'').replace(/[^0-9.\-]/g,''))||0;
+      if(!state.inbound.monthStaffed) state.inbound.monthStaffed={}; state.inbound.monthStaffed[ym]=v; saveState(); renderInStaff();
     };
   });
 }
 
-/* Diagnostics (+suggestions) */
+/* Diagnostics */
 function renderDiag(){
   const div=$('#diagList'); if(!div) return; div.innerHTML='';
   const g=state.globals;
@@ -734,7 +699,6 @@ document.getElementById('tabs').addEventListener('click',e=>{
 
 /* Global actions */
 $('#btnToggleGlobal').onclick=()=>{const el=$('#globalBody');const b=$('#btnToggleGlobal');const isOpen=el.style.display!=='none';el.style.display=isOpen?'none':'block';b.textContent=isOpen?'Expand':'Collapse';};
-
 $('#btnExportSummary').onclick=()=>{
   const mode=$('#exportMode').value;const lines=[];
   const start=$('#startMonth')?.value||ymKey(new Date());
@@ -749,22 +713,12 @@ $('#btnCollapseAll').onclick=()=>{state.months.forEach(m=>m.open=false);renderOv
 $('#btnExpandAll').onclick=()=>{state.months.forEach(m=>m.open=true);renderOverview();};
 $('#btnRebuild').onclick=renderAll; $('#btnStaffGo').onclick=renderStaffing; $('#btnInStaffGo').onclick=renderInStaff;
 
-/* Global inputs -> state (save on input; render on blur) */
+/* Global inputs -> state */
 ['g_comp','g_hours','g_shrink','g_sl','g_fteattr','r_0','r_1','r_2'].forEach(id=>{
   const el=$('#'+id); if(!el) return;
-  const writeGlobals=()=>{
-    const g=state.globals;
-    g.compPerHr=readNum($('#g_comp'));
-    g.hoursPerDay=readNum($('#g_hours'));
-    g.shrink=readNum($('#g_shrink'));
-    g.sl=readNum($('#g_sl'));
-    g.defFteAttr=readNum($('#g_fteattr'));
-    g.ramp0=readNum($('#r_0'));
-    g.ramp1=readNum($('#r_1'));
-    g.ramp2=readNum($('#r_2'));
-  };
-  el.oninput=()=>{ writeGlobals(); saveState(); };
-  el.onblur=()=>{ writeGlobals(); renderAll(); };
+  const write=()=>{const g=state.globals; g.compPerHr=readNum($('#g_comp')); g.hoursPerDay=readNum($('#g_hours')); g.shrink=readNum($('#g_shrink')); g.sl=readNum($('#g_sl')); g.defFteAttr=readNum($('#g_fteattr')); g.ramp0=readNum($('#r_0')); g.ramp1=readNum($('#r_1')); g.ramp2=readNum($('#r_2'));};
+  el.oninput=()=>{ write(); saveState(); };
+  el.onblur=()=>{ write(); renderAll(); };
 });
 
 /* Holidays UI */
@@ -792,8 +746,8 @@ $('#btnImportCsv').onclick=()=>{
       const lines=(r.result||'').split(/\r?\n/).filter(x=>x.trim());
       const headers=lines.shift().split(',').map(h=>h.trim().toLowerCase());
       const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
-      const required=['month(yyyy-mm)','som_patients','enrollments','attrition_pct','practice_loss','som_fte','new_hires'];
-      if(!required.every(h=>idx[h]!=null)){alert('Missing required headers. Check README.');return;}
+      const req=['month(yyyy-mm)','som_patients','enrollments','attrition_pct','practice_loss','som_fte','new_hires'];
+      if(!req.every(h=>idx[h]!=null)){alert('Missing required headers.');return;}
       lines.forEach(line=>{
         const cols=line.split(',');
         const ym=(cols[idx['month(yyyy-mm)']]||'').trim();
@@ -830,26 +784,14 @@ function init(){
 init();
 </script>
 
-<!-- Inline error panel (for quick debugging) -->
+<!-- tiny debug footer -->
 <div id="errbox" style="position:fixed;left:8px;bottom:8px;right:8px;max-height:40vh;overflow:auto;background:#111;color:#fff;padding:8px;border-radius:8px;font:12px/1.4 monospace;display:none;z-index:99999"></div>
 <script>
 (function(){
-  function show(msg){
-    var b=document.getElementById('errbox');
-    if (!b) return;
-    b.style.display='block';
-    var p=document.createElement('div');
-    p.textContent = '['+new Date().toISOString()+'] ' + msg;
-    b.appendChild(p);
-  }
-  window.addEventListener('load', function(){ show('JS loaded ✓'); }, {once:true});
-  window.onerror = function(msg, src, lin, col, err){
-    show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:''));
-    return false;
-  };
-  window.addEventListener('unhandledrejection', function(e){
-    var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));
-  });
+  function show(msg){var b=document.getElementById('errbox'); if(!b) return; b.style.display='block'; var p=document.createElement('div'); p.textContent='['+new Date().toISOString()+'] '+msg; b.appendChild(p);}
+  window.addEventListener('load',function(){show('JS loaded ✓')},{once:true});
+  window.onerror=function(msg,src,lin,col,err){show('Error: '+msg+' @ '+(src||'')+':'+lin+':'+col+(err&&err.stack?'\n'+err.stack:'')); return false;};
+  window.addEventListener('unhandledrejection',function(e){var r=e.reason; show('Promise error: '+(r && (r.stack||r.message||r)));});
 })();
 </script>
 
